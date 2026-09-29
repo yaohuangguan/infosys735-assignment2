@@ -1,0 +1,803 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: INFOSYS 735 Assignment 2 - AnyGroupLLC two-AZ three-tier prototype.
+
+Parameters:
+  LatestAmiId:
+    Type: AWS::EC2::Image::Id
+    Default: ami-0b245cc5f82576748
+  InstanceType:
+    Type: String
+    Default: t3.micro
+    AllowedValues: [t3.micro, t2.micro]
+  ProjectTag:
+    Type: String
+    Default: INFOSYS735-A2
+
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - {Key: Name, Value: anygroupllc-a2-vpc}
+        - {Key: Project, Value: !Ref ProjectTag}
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - {Key: Name, Value: anygroupllc-a2-igw}
+        - {Key: Project, Value: !Ref ProjectTag}
+
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  PublicSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [0, !GetAZs '']
+      CidrBlock: 10.0.0.0/24
+      MapPublicIpOnLaunch: true
+      Tags: [{Key: Name, Value: public-a}, {Key: Project, Value: !Ref ProjectTag}]
+
+  PublicSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [1, !GetAZs '']
+      CidrBlock: 10.0.1.0/24
+      MapPublicIpOnLaunch: true
+      Tags: [{Key: Name, Value: public-b}, {Key: Project, Value: !Ref ProjectTag}]
+
+  AppSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [0, !GetAZs '']
+      CidrBlock: 10.0.10.0/24
+      Tags: [{Key: Name, Value: app-a}, {Key: Project, Value: !Ref ProjectTag}]
+
+  AppSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [1, !GetAZs '']
+      CidrBlock: 10.0.11.0/24
+      Tags: [{Key: Name, Value: app-b}, {Key: Project, Value: !Ref ProjectTag}]
+
+  DbSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [0, !GetAZs '']
+      CidrBlock: 10.0.20.0/24
+      Tags: [{Key: Name, Value: db-a}, {Key: Project, Value: !Ref ProjectTag}]
+
+  DbSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [1, !GetAZs '']
+      CidrBlock: 10.0.21.0/24
+      Tags: [{Key: Name, Value: db-b}, {Key: Project, Value: !Ref ProjectTag}]
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags: [{Key: Name, Value: public-rt}, {Key: Project, Value: !Ref ProjectTag}]
+
+  PublicDefaultRoute:
+    Type: AWS::EC2::Route
+    DependsOn: AttachGateway
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicARouteAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: {SubnetId: !Ref PublicSubnetA, RouteTableId: !Ref PublicRouteTable}
+
+  PublicBRouteAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: {SubnetId: !Ref PublicSubnetB, RouteTableId: !Ref PublicRouteTable}
+
+  NatEipA:
+    Type: AWS::EC2::EIP
+    DependsOn: AttachGateway
+    Properties:
+      Domain: vpc
+      Tags: [{Key: Name, Value: nat-eip-a}, {Key: Project, Value: !Ref ProjectTag}]
+
+  NatEipB:
+    Type: AWS::EC2::EIP
+    DependsOn: AttachGateway
+    Properties:
+      Domain: vpc
+      Tags: [{Key: Name, Value: nat-eip-b}, {Key: Project, Value: !Ref ProjectTag}]
+
+  NatGatewayA:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NatEipA.AllocationId
+      SubnetId: !Ref PublicSubnetA
+      Tags: [{Key: Name, Value: nat-a}, {Key: Project, Value: !Ref ProjectTag}]
+
+  NatGatewayB:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NatEipB.AllocationId
+      SubnetId: !Ref PublicSubnetB
+      Tags: [{Key: Name, Value: nat-b}, {Key: Project, Value: !Ref ProjectTag}]
+
+  AppRouteTableA:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags: [{Key: Name, Value: app-rt-a}, {Key: Project, Value: !Ref ProjectTag}]
+
+  AppRouteTableB:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags: [{Key: Name, Value: app-rt-b}, {Key: Project, Value: !Ref ProjectTag}]
+
+  AppDefaultRouteA:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref AppRouteTableA
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGatewayA
+
+  AppDefaultRouteB:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref AppRouteTableB
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGatewayB
+
+  AppARouteAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: {SubnetId: !Ref AppSubnetA, RouteTableId: !Ref AppRouteTableA}
+
+  AppBRouteAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: {SubnetId: !Ref AppSubnetB, RouteTableId: !Ref AppRouteTableB}
+
+  DbRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags: [{Key: Name, Value: db-rt-local-only}, {Key: Project, Value: !Ref ProjectTag}]
+
+  DbARouteAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: {SubnetId: !Ref DbSubnetA, RouteTableId: !Ref DbRouteTable}
+
+  DbBRouteAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: {SubnetId: !Ref DbSubnetB, RouteTableId: !Ref DbRouteTable}
+
+  PublicNacl:
+    Type: AWS::EC2::NetworkAcl
+    Properties:
+      VpcId: !Ref VPC
+      Tags: [{Key: Name, Value: public-nacl}, {Key: Project, Value: !Ref ProjectTag}]
+
+  PublicNaclInHttp:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      NetworkAclId: !Ref PublicNacl
+      RuleNumber: 100
+      Protocol: 6
+      RuleAction: allow
+      Egress: false
+      CidrBlock: 0.0.0.0/0
+      PortRange: {From: 80, To: 80}
+
+  PublicNaclInEphemeral:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      NetworkAclId: !Ref PublicNacl
+      RuleNumber: 110
+      Protocol: 6
+      RuleAction: allow
+      Egress: false
+      CidrBlock: 0.0.0.0/0
+      PortRange: {From: 1024, To: 65535}
+
+  PublicNaclOut:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      NetworkAclId: !Ref PublicNacl
+      RuleNumber: 100
+      Protocol: -1
+      RuleAction: allow
+      Egress: true
+      CidrBlock: 0.0.0.0/0
+
+  PublicNaclAssocA:
+    Type: AWS::EC2::SubnetNetworkAclAssociation
+    Properties: {SubnetId: !Ref PublicSubnetA, NetworkAclId: !Ref PublicNacl}
+
+  PublicNaclAssocB:
+    Type: AWS::EC2::SubnetNetworkAclAssociation
+    Properties: {SubnetId: !Ref PublicSubnetB, NetworkAclId: !Ref PublicNacl}
+
+  AppNacl:
+    Type: AWS::EC2::NetworkAcl
+    Properties:
+      VpcId: !Ref VPC
+      Tags: [{Key: Name, Value: app-nacl}, {Key: Project, Value: !Ref ProjectTag}]
+
+  AppNaclInHttp:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      NetworkAclId: !Ref AppNacl
+      RuleNumber: 100
+      Protocol: 6
+      RuleAction: allow
+      Egress: false
+      CidrBlock: 10.0.0.0/16
+      PortRange: {From: 80, To: 80}
+
+  AppNaclInEphemeral:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      NetworkAclId: !Ref AppNacl
+      RuleNumber: 110
+      Protocol: 6
+      RuleAction: allow
+      Egress: false
+      CidrBlock: 0.0.0.0/0
+      PortRange: {From: 1024, To: 65535}
+
+  AppNaclInUdpEphemeral:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      NetworkAclId: !Ref AppNacl
+      RuleNumber: 120
+      Protocol: 17
+      RuleAction: allow
+      Egress: false
+      CidrBlock: 0.0.0.0/0
+      PortRange: {From: 1024, To: 65535}
+
+  AppNaclOut:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      NetworkAclId: !Ref AppNacl
+      RuleNumber: 100
+      Protocol: -1
+      RuleAction: allow
+      Egress: true
+      CidrBlock: 0.0.0.0/0
+
+  AppNaclAssocA:
+    Type: AWS::EC2::SubnetNetworkAclAssociation
+    Properties: {SubnetId: !Ref AppSubnetA, NetworkAclId: !Ref AppNacl}
+
+  AppNaclAssocB:
+    Type: AWS::EC2::SubnetNetworkAclAssociation
+    Properties: {SubnetId: !Ref AppSubnetB, NetworkAclId: !Ref AppNacl}
+
+  DbNacl:
+    Type: AWS::EC2::NetworkAcl
+    Properties:
+      VpcId: !Ref VPC
+      Tags: [{Key: Name, Value: db-nacl}, {Key: Project, Value: !Ref ProjectTag}]
+
+  DbNaclIn:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      NetworkAclId: !Ref DbNacl
+      RuleNumber: 100
+      Protocol: 6
+      RuleAction: allow
+      Egress: false
+      CidrBlock: 10.0.0.0/16
+      PortRange: {From: 8080, To: 8080}
+
+  DbNaclOut:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      NetworkAclId: !Ref DbNacl
+      RuleNumber: 100
+      Protocol: -1
+      RuleAction: allow
+      Egress: true
+      CidrBlock: 10.0.0.0/16
+
+  DbNaclAssocA:
+    Type: AWS::EC2::SubnetNetworkAclAssociation
+    Properties: {SubnetId: !Ref DbSubnetA, NetworkAclId: !Ref DbNacl}
+
+  DbNaclAssocB:
+    Type: AWS::EC2::SubnetNetworkAclAssociation
+    Properties: {SubnetId: !Ref DbSubnetB, NetworkAclId: !Ref DbNacl}
+
+  PublicAlbSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Public ALB HTTP entry for lab prototype
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - {IpProtocol: tcp, FromPort: 80, ToPort: 80, CidrIp: 0.0.0.0/0}
+      Tags: [{Key: Name, Value: public-alb-sg}, {Key: Project, Value: !Ref ProjectTag}]
+
+  FrontendSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Frontend only from public ALB
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourceSecurityGroupId: !Ref PublicAlbSG
+      Tags: [{Key: Name, Value: frontend-sg}, {Key: Project, Value: !Ref ProjectTag}]
+
+  InternalAlbSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Internal ALB only from frontend
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourceSecurityGroupId: !Ref FrontendSG
+      Tags: [{Key: Name, Value: internal-alb-sg}, {Key: Project, Value: !Ref ProjectTag}]
+
+  BackendSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Backend only from internal ALB
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourceSecurityGroupId: !Ref InternalAlbSG
+      Tags: [{Key: Name, Value: backend-sg}, {Key: Project, Value: !Ref ProjectTag}]
+
+  DbSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Dummy database only from backend
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          SourceSecurityGroupId: !Ref BackendSG
+      Tags: [{Key: Name, Value: db-sg}, {Key: Project, Value: !Ref ProjectTag}]
+
+  PublicAlb:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: anygroup-public-alb
+      Scheme: internet-facing
+      Type: application
+      SecurityGroups: [!Ref PublicAlbSG]
+      Subnets: [!Ref PublicSubnetA, !Ref PublicSubnetB]
+      Tags: [{Key: Project, Value: !Ref ProjectTag}]
+
+  FrontendTG:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: anygroup-front-tg
+      VpcId: !Ref VPC
+      Protocol: HTTP
+      Port: 80
+      TargetType: instance
+      HealthCheckPath: /health
+      Matcher: {HttpCode: 200}
+      Tags: [{Key: Project, Value: !Ref ProjectTag}]
+
+  PublicAlbListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref PublicAlb
+      Protocol: HTTP
+      Port: 80
+      DefaultActions:
+        - {Type: forward, TargetGroupArn: !Ref FrontendTG}
+
+  InternalAlb:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: anygroup-internal-alb
+      Scheme: internal
+      Type: application
+      SecurityGroups: [!Ref InternalAlbSG]
+      Subnets: [!Ref AppSubnetA, !Ref AppSubnetB]
+      Tags: [{Key: Project, Value: !Ref ProjectTag}]
+
+  BackendTG:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: anygroup-back-tg
+      VpcId: !Ref VPC
+      Protocol: HTTP
+      Port: 80
+      TargetType: instance
+      HealthCheckPath: /health
+      Matcher: {HttpCode: 200}
+      Tags: [{Key: Project, Value: !Ref ProjectTag}]
+
+  InternalAlbListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref InternalAlb
+      Protocol: HTTP
+      Port: 80
+      DefaultActions:
+        - {Type: forward, TargetGroupArn: !Ref BackendTG}
+
+  DummyDb:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref LatestAmiId
+      InstanceType: !Ref InstanceType
+      SubnetId: !Ref DbSubnetA
+      SecurityGroupIds: [!Ref DbSG]
+      IamInstanceProfile: LabInstanceProfile
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -eux
+          mkdir -p /opt/dummydb
+          echo '{"service":"dummy-oracle-tier","status":"healthy","purpose":"Assignment 2 network-tier demonstration"}' > /opt/dummydb/index.html
+          cat > /etc/systemd/system/dummydb.service <<'EOF'
+          [Unit]
+          Description=AnyGroupLLC dummy database endpoint
+          After=network.target
+          [Service]
+          ExecStart=/usr/bin/python3 -m http.server 8080 --directory /opt/dummydb
+          Restart=always
+          [Install]
+          WantedBy=multi-user.target
+          EOF
+          systemctl daemon-reload
+          systemctl enable --now dummydb
+      Tags:
+        - {Key: Name, Value: db-tier-dummy-oracle}
+        - {Key: Project, Value: !Ref ProjectTag}
+
+  BackendLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: anygroup-backend-lt
+      LaunchTemplateData:
+        ImageId: !Ref LatestAmiId
+        InstanceType: !Ref InstanceType
+        IamInstanceProfile: {Name: LabInstanceProfile}
+        SecurityGroupIds: [!Ref BackendSG]
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            set -eux
+            cat > /opt/anygroup-backend.py <<'PY'
+            from http.server import BaseHTTPRequestHandler, HTTPServer
+            import json
+            import urllib.request
+
+            DB_BASE = "http://${DummyDb.PrivateIp}:8080"
+
+            class Handler(BaseHTTPRequestHandler):
+                def send_body(self, status, body, content_type="application/json"):
+                    data = body if isinstance(body, bytes) else body.encode("utf-8")
+                    self.send_response(status)
+                    self.send_header("Content-Type", content_type)
+                    self.send_header("Content-Length", str(len(data)))
+                    self.end_headers()
+                    self.wfile.write(data)
+
+                def do_GET(self):
+                    if self.path == "/health":
+                        self.send_body(200, "ok", "text/plain")
+                        return
+                    if self.path.startswith("/db"):
+                        try:
+                            with urllib.request.urlopen(DB_BASE + "/", timeout=3) as response:
+                                self.send_body(response.status, response.read(), response.headers.get_content_type())
+                        except Exception as exc:
+                            self.send_body(502, json.dumps({"error": "db_proxy_failed", "detail": str(exc)}))
+                        return
+                    self.send_body(200, json.dumps({
+                        "service": "backend-app-tier",
+                        "status": "healthy",
+                        "production_target": ".NET Core/Windows",
+                        "prototype_runtime": "Python standard library"
+                    }))
+
+            HTTPServer(("0.0.0.0", 80), Handler).serve_forever()
+            PY
+            cat > /etc/systemd/system/anygroup-backend.service <<'EOF'
+            [Unit]
+            Description=AnyGroupLLC backend prototype
+            After=network-online.target
+            Wants=network-online.target
+            [Service]
+            ExecStart=/usr/bin/python3 /opt/anygroup-backend.py
+            Restart=always
+            [Install]
+            WantedBy=multi-user.target
+            EOF
+            systemctl daemon-reload
+            systemctl enable --now anygroup-backend
+        TagSpecifications:
+          - ResourceType: instance
+            Tags:
+              - {Key: Name, Value: backend-app-tier}
+              - {Key: Project, Value: !Ref ProjectTag}
+
+  BackendASG:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    UpdatePolicy:
+      AutoScalingRollingUpdate:
+        MinInstancesInService: 1
+        MaxBatchSize: 1
+        PauseTime: PT30S
+    DependsOn: [AppDefaultRouteA, AppDefaultRouteB]
+    Properties:
+      AutoScalingGroupName: anygroup-backend-asg
+      VPCZoneIdentifier: [!Ref AppSubnetA, !Ref AppSubnetB]
+      MinSize: '2'
+      DesiredCapacity: '2'
+      MaxSize: '4'
+      HealthCheckType: ELB
+      HealthCheckGracePeriod: 180
+      TargetGroupARNs: [!Ref BackendTG]
+      LaunchTemplate:
+        LaunchTemplateId: !Ref BackendLaunchTemplate
+        Version: !GetAtt BackendLaunchTemplate.LatestVersionNumber
+      Tags:
+        - {Key: Project, Value: !Ref ProjectTag, PropagateAtLaunch: true}
+
+  BackendScalingPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AutoScalingGroupName: !Ref BackendASG
+      PolicyType: TargetTrackingScaling
+      TargetTrackingConfiguration:
+        TargetValue: 60
+        PredefinedMetricSpecification: {PredefinedMetricType: ASGAverageCPUUtilization}
+
+  FrontendLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: anygroup-frontend-lt
+      LaunchTemplateData:
+        ImageId: !Ref LatestAmiId
+        InstanceType: !Ref InstanceType
+        IamInstanceProfile: {Name: LabInstanceProfile}
+        SecurityGroupIds: [!Ref FrontendSG]
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            set -eux
+            cat > /opt/anygroup-frontend.py <<'PY'
+            from http.server import BaseHTTPRequestHandler, HTTPServer
+            import urllib.request
+
+            BACKEND_BASE = "http://${InternalAlb.DNSName}"
+
+            HOME = """<!doctype html>
+            <html><head><title>AnyGroupLLC Assignment 2</title></head>
+            <body>
+              <h1>AnyGroupLLC New Zealand - AWS Prototype</h1>
+              <p>Public ALB -> Frontend ASG -> Internal ALB -> Backend ASG -> DB tier</p>
+              <ul>
+                <li><a href="/api/">Backend health</a></li>
+                <li><a href="/api/db/">Database-tier health</a></li>
+              </ul>
+            </body></html>"""
+
+            class Handler(BaseHTTPRequestHandler):
+                def send_body(self, status, body, content_type="text/plain"):
+                    data = body if isinstance(body, bytes) else body.encode("utf-8")
+                    self.send_response(status)
+                    self.send_header("Content-Type", content_type)
+                    self.send_header("Content-Length", str(len(data)))
+                    self.end_headers()
+                    self.wfile.write(data)
+
+                def do_GET(self):
+                    if self.path == "/health":
+                        self.send_body(200, "ok")
+                        return
+                    if self.path.startswith("/api"):
+                        suffix = self.path[4:] or "/"
+                        try:
+                            with urllib.request.urlopen(BACKEND_BASE + suffix, timeout=3) as response:
+                                self.send_body(response.status, response.read(), response.headers.get_content_type())
+                        except Exception as exc:
+                            self.send_body(502, "backend proxy failed: " + str(exc))
+                        return
+                    self.send_body(200, HOME, "text/html")
+
+            HTTPServer(("0.0.0.0", 80), Handler).serve_forever()
+            PY
+            cat > /etc/systemd/system/anygroup-frontend.service <<'EOF'
+            [Unit]
+            Description=AnyGroupLLC frontend prototype
+            After=network-online.target
+            Wants=network-online.target
+            [Service]
+            ExecStart=/usr/bin/python3 /opt/anygroup-frontend.py
+            Restart=always
+            [Install]
+            WantedBy=multi-user.target
+            EOF
+            systemctl daemon-reload
+            systemctl enable --now anygroup-frontend
+        TagSpecifications:
+          - ResourceType: instance
+            Tags:
+              - {Key: Name, Value: frontend-apache-tier}
+              - {Key: Project, Value: !Ref ProjectTag}
+
+  FrontendASG:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    UpdatePolicy:
+      AutoScalingRollingUpdate:
+        MinInstancesInService: 1
+        MaxBatchSize: 1
+        PauseTime: PT30S
+    DependsOn: [AppDefaultRouteA, AppDefaultRouteB, BackendASG]
+    Properties:
+      AutoScalingGroupName: anygroup-frontend-asg
+      VPCZoneIdentifier: [!Ref AppSubnetA, !Ref AppSubnetB]
+      MinSize: '2'
+      DesiredCapacity: '2'
+      MaxSize: '4'
+      HealthCheckType: ELB
+      HealthCheckGracePeriod: 180
+      TargetGroupARNs: [!Ref FrontendTG]
+      LaunchTemplate:
+        LaunchTemplateId: !Ref FrontendLaunchTemplate
+        Version: !GetAtt FrontendLaunchTemplate.LatestVersionNumber
+      Tags:
+        - {Key: Project, Value: !Ref ProjectTag, PropagateAtLaunch: true}
+
+  FrontendScalingPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AutoScalingGroupName: !Ref FrontendASG
+      PolicyType: TargetTrackingScaling
+      TargetTrackingConfiguration:
+        TargetValue: 60
+        PredefinedMetricSpecification: {PredefinedMetricType: ASGAverageCPUUtilization}
+
+  AlarmTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: anygroup-infrastructure-alarms
+      Tags: [{Key: Project, Value: !Ref ProjectTag}]
+
+  FrontendHighCpuAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: anygroup-frontend-high-cpu
+      AlarmDescription: Frontend ASG average CPU above 70 percent for two periods
+      Namespace: AWS/EC2
+      MetricName: CPUUtilization
+      Statistic: Average
+      Period: 60
+      EvaluationPeriods: 2
+      Threshold: 70
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - {Name: AutoScalingGroupName, Value: !Ref FrontendASG}
+      AlarmActions: [!Ref AlarmTopic]
+      OKActions: [!Ref AlarmTopic]
+      TreatMissingData: notBreaching
+
+  ForecastFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: anygroup-sales-forecast
+      Description: Simple moving-average forecasting prototype for CFO use case
+      Runtime: python3.12
+      Handler: index.lambda_handler
+      Timeout: 30
+      MemorySize: 128
+      Role: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/LabRole
+      Environment:
+        Variables: {OUTPUT_KEY: forecast-output/latest.json}
+      Code:
+        ZipFile: |
+          import boto3
+          import csv
+          import io
+          import json
+          import os
+          from datetime import datetime, timezone
+          s3 = boto3.client("s3")
+
+          def lambda_handler(event, context):
+              record = event["Records"][0]
+              bucket = record["s3"]["bucket"]["name"]
+              key = record["s3"]["object"]["key"]
+              obj = s3.get_object(Bucket=bucket, Key=key)
+              text = obj["Body"].read().decode("utf-8")
+              rows = list(csv.DictReader(io.StringIO(text)))
+              sales = [float(r["sales"]) for r in rows if r.get("sales")]
+              if not sales:
+                  raise ValueError("CSV must contain a numeric sales column")
+              window = sales[-7:]
+              forecast = sum(window) / len(window)
+              result = {
+                  "model": "7-day-simple-moving-average",
+                  "source_key": key,
+                  "observations": len(sales),
+                  "window_size": len(window),
+                  "next_day_sales_forecast": round(forecast, 2),
+                  "generated_at": datetime.now(timezone.utc).isoformat()
+              }
+              output_key = os.environ.get("OUTPUT_KEY", "forecast-output/latest.json")
+              s3.put_object(Bucket=bucket, Key=output_key,
+                            Body=json.dumps(result, indent=2).encode("utf-8"),
+                            ContentType="application/json")
+              return result
+      Tags: [{Key: Project, Value: !Ref ProjectTag}]
+
+  ForecastInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref ForecastFunction
+      Action: lambda:InvokeFunction
+      Principal: s3.amazonaws.com
+      SourceAccount: !Ref AWS::AccountId
+      SourceArn: !Sub arn:${AWS::Partition}:s3:::anygroupllc-a2-${AWS::AccountId}-${AWS::Region}
+
+  CatalogueBucket:
+    Type: AWS::S3::Bucket
+    DependsOn: ForecastInvokePermission
+    Properties:
+      BucketName: !Sub anygroupllc-a2-${AWS::AccountId}-${AWS::Region}
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault: {SSEAlgorithm: AES256}
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        IgnorePublicAcls: true
+        BlockPublicPolicy: true
+        RestrictPublicBuckets: true
+      NotificationConfiguration:
+        LambdaConfigurations:
+          - Event: s3:ObjectCreated:*
+            Function: !GetAtt ForecastFunction.Arn
+            Filter:
+              S3Key:
+                Rules:
+                  - {Name: prefix, Value: forecast-input/}
+                  - {Name: suffix, Value: .csv}
+      Tags:
+        - {Key: Name, Value: catalogue-and-forecast-data}
+        - {Key: Project, Value: !Ref ProjectTag}
+
+Outputs:
+  VpcId:
+    Value: !Ref VPC
+  PublicAlbDns:
+    Value: !GetAtt PublicAlb.DNSName
+  InternalAlbDns:
+    Value: !GetAtt InternalAlb.DNSName
+  DummyDbPrivateIp:
+    Value: !GetAtt DummyDb.PrivateIp
+  ForecastBucket:
+    Value: !Ref CatalogueBucket
+  ForecastFunctionName:
+    Value: !Ref ForecastFunction
+  AlarmTopicArn:
+    Value: !Ref AlarmTopic
