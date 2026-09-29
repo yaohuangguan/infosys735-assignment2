@@ -22,3 +22,21 @@ Assignment 1 proposed `ap-southeast-6` (New Zealand). The Learner Lab account do
 
 ## Cost note
 The stack creates two NAT Gateways, two ALBs, four Auto Scaling EC2 instances, and one dummy DB EC2. Deploy for validation/demo and delete when not needed.
+
+## Assignment materials
+
+- [Architecture diagram](architecture_diagram.md)
+- [Well-Architected review](well_architected_review.md)
+- [Pitch script and demo flow](pitch_script.md)
+
+## Useful commands
+
+```bash
+./deploy.sh
+./verify.sh
+./destroy.sh
+```
+
+Current tested public ALB URL:
+
+`http://anygroup-public-alb-735612210.us-east-1.elb.amazonaws.com/`
