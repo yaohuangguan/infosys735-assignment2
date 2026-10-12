@@ -35,12 +35,26 @@ The Assignment 1 instructor feedback (Yi-Chien Vita Tsai, 12 October 2026) asked
 | Production tier | Initial class | Proposed availability pattern | Why this is a starting hypothesis |
 | --- | --- | --- | --- |
 | Apache/Linux frontend | `t3.medium` (2 vCPU / 4 GiB) | Two instances, two AZs, public ALB | Cost-conscious for variable traffic; measure CPU credits under sustained load |
-| .NET Core/Windows backend | `m6i.large` (2 vCPU / 8 GiB) | Two instances, two AZs, internal ALB | More general-purpose memory headroom; verify Windows/.NET consumption |
-| RDS for Oracle 19c | `db.m6i.large` (2 vCPU / 8 GiB) | Multi-AZ DB deployment | Oracle class is provisional pending edition, licensing, regional support and IOPS validation |
+| .NET Core/Windows backend | `m6i.xlarge` (4 vCPU / 16 GiB) | **Four** instances, two AZs, internal ALB | Respects the existing four-host / 16-GB-per-host estate; physical CPU is not directly equivalent to vCPU |
+| RDS for Oracle 19c | `db.m6i.2xlarge` (8 vCPU / 32 GiB; initial ~2-TB storage target) | Multi-AZ DB deployment | Closer to the existing Oracle server's 32-GB memory and 2-TB storage; validate edition, licensing, regional availability and IOPS |
 
 The actual lab retains `t3.micro` Linux/Python dummy app instances and one `t3.micro` dummy DB EC2. **It does not deploy Oracle RDS or the proposed production-sized instances.** Confirm `ap-southeast-6` service/class availability, test CPU, memory, peak response time, T3 credits, Oracle capacity, restore and failover, and compare all-in licensing/network costs before production. This addresses a specific instructor suggestion without changing a previously accepted architecture.
 
 RDS reference: https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Oracle.Concepts.InstanceClasses.html
+
+## GP1 baseline versus GP2 demonstrated improvements
+
+A component **already proposed in GP1** is not itself a new GP2 design improvement. The improvement lies in making the design testable, automated and better justified. Evidence should be refreshed in the live Learner Lab.
+
+| AWS Well-Architected practice | GP1 baseline | GP2 gap and change | Demo evidence | Remaining validation |
+| --- | --- | --- | --- | --- |
+| Reliability - automatically recover from failure | Two AZs, public/internal ALBs and ASGs already proposed | Implement ASGs + ELB health checks in CloudFormation; add health assertions to `verify.sh` | Target health, cross-AZ in-service instances, HTTP proxy chain | Actual failure injection, AZ survival, database failover / RTO-RPO |
+| Operational Excellence - operations as code / learn from failures | Manual workload/ops risks identified | Repeatable CloudFormation deploy/verify/teardown; remove failed `dnf install httpd` startup dependency; test forecasts offline | Stack resources, scripts and explicit pass/fail checks | Production runbooks, rollback and incident response |
+| Security - apply security at all layers | Segmented VPC and SGs already specified | Implement SG/NACL isolation; **fix NAT public NACL HTTPS ingress**; add explicit verification | Public NACL 443, DB private route table, bucket encryption | Private-AZ live HTTPS egress, HTTPS/TLS, PCI, production IAM/WAF |
+| Cost Optimization - control cost and monitor usage | OpEx and elastic scaling proposed | Use lab-sized dummy EC2, separate production baseline, choose basic-monitoring alarm periods and teardown | CloudFormation sizing, alarm and budget checks | Full TCO incl. Oracle/Windows licenses, production load |
+| Business extension (outside six pillars) | CFO requested demand forecasting | New S3 ObjectCreated -> validated daily-sales Lambda -> per-input S3 JSON output | Upload a unique CSV; verify matching result and forecast | Accuracy, model selection, procurement workflow and data quality |
+
+The additional rubric category is **subject to lecturer interpretation**; do not assume CloudFormation automatically qualifies as a separately graded "additional component" without the original detailed rubric.
 
 ## Learner Lab implementation boundary
 
@@ -92,7 +106,7 @@ The implementation uses Infrastructure as Code:
 
 - `template.yaml` defines the VPC, subnets, routes, NAT Gateways, NACLs, Security Groups, ALBs, Auto Scaling Groups, S3 bucket, Lambda function, CloudWatch alarm, and SNS topic.
 - `deploy.sh` validates and deploys the CloudFormation stack.
-- `verify.sh` checks the live stack, target health, HTTP paths, S3/Lambda forecast output, and CloudWatch alarm.
+- `verify.sh` asserts the live stack status, healthy cross-AZ app capacity, NACL/NAT configuration, HTTP response content, a unique fresh forecast output, and CloudWatch/SNS configuration.
 - `destroy.sh` empties the S3 bucket and deletes the stack to control lab cost.
 
 ### Evidence to show
