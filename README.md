@@ -295,7 +295,7 @@ The scripts default to **`us-east-1`** and stack **`anygroupllc-a2`**. The Learn
 3. In the **WSL project folder** (not your Windows GitHub clone), prepare a local configuration file:
 
 ```bash
-cp .env.example .env
+test -f .env || cp .env.example .env  # preserve existing credentials
 chmod 600 .env
 nano .env
 ```
