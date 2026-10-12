@@ -1,6 +1,6 @@
 # Pitch Script and Demo Flow
 
-Target length: 15 minutes.
+Target length: approximately 15 minutes (11 slides; keep the sizing-feedback slide brief).
 
 The presentation should be a stakeholder pitch, not a lab walkthrough. Use the AWS Console as evidence for business claims.
 
@@ -33,7 +33,24 @@ Mention:
 - Public ALB, frontend ASG, internal ALB, backend ASG, and Oracle Multi-AZ remain the production traffic path.
 - Private S3 remains the product-image storage pattern.
 
-## Slide 4 — Learner Lab constraints
+## Slide 4 — Assignment 1 feedback: initial production sizing
+
+**Message:** We acted on the instructor's specific feedback by identifying preliminary production instance classes while preserving the low-cost Learner Lab configuration.
+
+**Production recommendations (not lab resources):**
+
+- Frontend Apache/Linux: **EC2 `t3.medium`**, 2 vCPU / 4 GiB, starting with two instances across AZs.
+- Backend .NET/Windows: **EC2 `m6i.large`**, 2 vCPU / 8 GiB, starting with two instances across AZs.
+- Oracle database: **RDS `db.m6i.large`**, 2 vCPU / 8 GiB, initial Multi-AZ proposal.
+- Learner Lab remains **`t3.micro` dummy services**, not the above production classes.
+
+**Validation gates:** Check `ap-southeast-6` class/engine availability, Oracle edition/licensing, frontend T3 credit behavior, Windows memory needs, DB IOPS, load testing and DR targets. These are starting assumptions, not benchmarked final sizes.
+
+Suggested script:
+
+> Following Assignment 1 feedback, we now specify starting instance types for each production tier. We propose t3.medium for the Linux frontend, m6i.large for the Windows .NET backend and db.m6i.large for Oracle RDS Multi-AZ. These are provisional choices to validate against load, licensing, regional availability and recovery targets. The Learner Lab deliberately keeps its low-cost dummy servers unchanged.
+
+## Slide 5 — Learner Lab constraints
 
 **Message:** The prototype is a lab-constrained implementation, not a change to the production recommendation.
 
@@ -43,7 +60,7 @@ Mention:
 - Learner Lab deployment uses `us-east-1` because the lab account does not expose `ap-southeast-6`.
 - Dummy EC2 is used for app and database tiers because the assignment allows dummy app and DB servers.
 
-## Slide 5 — Deployed resource coverage
+## Slide 6 — Deployed resource coverage
 
 **Message:** The implementation covers the assignment's required services.
 
@@ -58,7 +75,7 @@ Suggested script:
 
 > The value of using CloudFormation is that this environment is repeatable. We can destroy and recreate it without manually clicking through dozens of services.
 
-## Slide 6 — Forecasting feature
+## Slide 7 — Forecasting feature
 
 **Message:** The additional feature directly addresses the CFO's demand-forecasting concern.
 
@@ -74,7 +91,7 @@ Suggested script:
 
 > This is intentionally a simple moving-average prototype. The purpose is to prove an extensible data flow: sales data lands in S3, an event triggers serverless processing, and the forecast output is written back to S3. In production, the model could become more sophisticated after data quality and business granularity are validated.
 
-## Slide 7 — Reliability and Operational Excellence
+## Slide 8 — Reliability and Operational Excellence
 
 **Message:** These two pillars are strongly evidenced by the live implementation.
 
@@ -90,7 +107,7 @@ Suggested script:
 
 > Reliability is demonstrated through health-checked load balancing across two Availability Zones. Operational excellence is demonstrated through Infrastructure as Code and repeatable verification scripts.
 
-## Slide 8 — Security and Cost Optimization
+## Slide 9 — Security and Cost Optimization
 
 **Message:** The prototype demonstrates key controls while acknowledging production compliance boundaries.
 
@@ -105,7 +122,7 @@ Suggested script:
 
 > We should describe this as supporting PCI-aligned architecture principles, not as proving PCI compliance. Compliance depends on payment-flow design, policies, evidence, and formal assessment.
 
-## Slide 9 — Live demo order
+## Slide 10 — Live demo order
 
 Recommended Console order:
 
@@ -126,7 +143,7 @@ HTTP paths:
 - `/api/` proves frontend to backend.
 - `/api/db/` proves backend to private database tier.
 
-## Slide 10 — Recommendation
+## Slide 11 — Recommendation
 
 **Message:** The architecture direction is strong, but production still requires validation.
 

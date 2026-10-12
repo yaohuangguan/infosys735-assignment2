@@ -11,18 +11,19 @@ The purpose is not to claim a production-ready e-commerce platform. It is to dem
 1. [Objectives and assignment deliverables](#objectives-and-assignment-deliverables)
 2. [Architecture and request flow](#architecture-and-request-flow)
 3. [Production design versus Learner Lab implementation](#production-design-versus-learner-lab-implementation)
-4. [AWS resources implemented](#aws-resources-implemented)
-5. [Network and security design](#network-and-security-design)
-6. [Compute, load balancing, and resilience](#compute-load-balancing-and-resilience)
-7. [Additional feature: sales forecasting](#additional-feature-sales-forecasting)
-8. [Monitoring and operations](#monitoring-and-operations)
-9. [Well-Architected Framework review](#well-architected-framework-review)
-10. [Learner Lab setup and deployment](#learner-lab-setup-and-deployment)
-11. [Verification and presentation evidence](#verification-and-presentation-evidence)
-12. [Problems encountered and design decisions](#problems-encountered-and-design-decisions)
-13. [Costs, limitations, and cleanup](#costs-limitations-and-cleanup)
-14. [Four-person presentation plan](#four-person-presentation-plan)
-15. [Repository guide](#repository-guide)
+4. [Assignment 1 feedback: provisional production sizing](#assignment-1-feedback-provisional-production-sizing)
+5. [AWS resources implemented](#aws-resources-implemented)
+6. [Network and security design](#network-and-security-design)
+7. [Compute, load balancing, and resilience](#compute-load-balancing-and-resilience)
+8. [Additional feature: sales forecasting](#additional-feature-sales-forecasting)
+9. [Monitoring and operations](#monitoring-and-operations)
+10. [Well-Architected Framework review](#well-architected-framework-review)
+11. [Learner Lab setup and deployment](#learner-lab-setup-and-deployment)
+12. [Verification and presentation evidence](#verification-and-presentation-evidence)
+13. [Problems encountered and design decisions](#problems-encountered-and-design-decisions)
+14. [Costs, limitations, and cleanup](#costs-limitations-and-cleanup)
+15. [Four-person presentation plan](#four-person-presentation-plan)
+16. [Repository guide](#repository-guide)
 
 ## Objectives and assignment deliverables
 
@@ -42,7 +43,7 @@ The four grading components below use the exact labels and weights from the Assi
 
 | Official marking criterion | Weight | How our solution addresses it | Evidence to include |
 | --- | ---: | --- | --- |
-| **Solution improvement** | **10%** | Improve the Assignment 1 architecture using AWS Well-Architected trade-offs and add a business-facing forecasting workflow. Explain what changed and why. | Updated final architecture diagram, [Well-Architected review](well_architected_review.md), production-versus-lab comparison |
+| **Solution improvement** | **10%** | Improve the Assignment 1 architecture using AWS Well-Architected trade-offs and add a business-facing forecasting workflow. Explain what changed and why. | Updated architecture, [Well-Architected review](well_architected_review.md), [provisional production instance sizing](#assignment-1-feedback-provisional-production-sizing), production-versus-lab comparison |
 | **Infrastructure implementation (Basic)** | **30%** | Build VPC networking, two AZs, six subnets, routing, NAT, Security Groups/NACLs, public/internal ALBs, frontend/backend ASGs, EC2 dummy DB and private S3. | CloudFormation Resources, subnet/route and security views, target health, ASG instances, live `/`, `/api/` and `/api/db/` results |
 | **Infrastructure implementation (Additional)** | **20%** | Implement event-driven sales forecasting with S3 + Lambda and infrastructure monitoring using CloudWatch + SNS. | Upload `sample-sales.csv`, show Lambda trigger/execution and generated `forecast-output/latest.json`, inspect CloudWatch alarm and SNS topic |
 | **Presentation** | **40%** | Explain the architecture, business rationale, technical choices, trade-offs and working implementation with a coherent four-speaker pitch. | PDF/slides plus a recorded AWS Console walkthrough with substantial live-system evidence |
@@ -124,6 +125,31 @@ Assignment 1 described an intended production architecture. Assignment 2 intenti
 | Additional feature | Forecasting concept for CFO | S3-triggered Python Lambda and output JSON |
 
 **Do not equate simulated application/database tiers with production Oracle/.NET functionality or compliance.** The substitution is intentional under Learner Lab restrictions and budget.
+
+## Assignment 1 feedback: provisional production sizing
+
+In the feedback dated **12 October 2026**, Yi-Chien Vita Tsai described the multi-AZ architecture, stakeholder coverage, security and reliability as strong, while recommending one concrete improvement: **name a provisional EC2 instance type for each tier and an initial RDS instance class**.
+
+We have now translated that feedback into the following **starting production sizing assumptions** (not production deployments or measured sizing results).
+
+| Tier (production) | Provisional starting class | Capacity per instance | Initial architecture and rationale | Learner Lab actual configuration |
+| --- | --- | --- | --- | --- |
+| Frontend - Apache on Linux | **EC2 `t3.medium`** | **2 vCPU, 4 GiB RAM** | Start with **2 instances across 2 AZs** behind the public ALB; the burstable class is an initial cost-conscious choice for variable frontend traffic. Monitor CPU-credit balance during sustained campaigns and consider a non-burstable class if needed. | `t3.micro` Linux/Python simulator in the frontend ASG |
+| Backend - .NET Core on Windows | **EC2 `m6i.large`** | **2 vCPU, 8 GiB RAM** | Start with **2 instances across 2 AZs** behind the internal ALB. General-purpose baseline with more memory headroom for the Windows OS and .NET services; validate CPU/memory and Windows licensing costs. | `t3.micro` Linux/Python simulator in the backend ASG |
+| Database - Oracle on Amazon RDS | **RDS `db.m6i.large`** | **2 vCPU, 8 GiB RAM** | **RDS for Oracle 19c, Multi-AZ** as an initial DB class, subject to confirming the selected edition, licensing model, regional availability and storage/IOPS needs. A secondary Multi-AZ standby does **not** double read-serving capacity. | **Single** `t3.micro` EC2 dummy HTTP endpoint; no Oracle, RDS or DB failover |
+
+**Why this qualifies as a design improvement:** the original Assignment 1 diagram specified the deployment pattern and technology choices but left instance classes unspecified. Assigning explicit, reviewable starting sizes makes the design easier to cost, capacity-plan and test without pretending that the Learner Lab dummy servers are production equivalents.
+
+**Validation gates before committing to production:**
+
+1. Confirm EC2 and RDS class availability in the target AWS Region (proposed `ap-southeast-6`) and verify Oracle 19c **edition, licensing, Multi-AZ support and commercial terms**.
+2. Load-test baseline and seasonal-peak traffic across frontend/backend. Observe CPU, memory, latency, ASG scaling, and **T3 CPU credits**; right-size or switch instance families if sustained utilization invalidates burstable assumptions.
+3. Benchmark Oracle memory, storage, IOPS, connection limits, backup/restore, RTO/RPO and failover behavior with **representative migrated data**.
+4. Compare projected compute, Windows/Oracle licensing, NAT/ALB/network, storage and operational costs against the CFO's budget before committing.
+
+**Boundary:** these are **provisional production recommendations only**. No change to `template.yaml` is required; the Learner Lab continues to use `t3.micro` and a dummy database to stay within its restrictions and budget. AWS RDS documentation lists `db.m6i.large` among supported classes for Oracle 19c, but this does not guarantee availability for every Region, engine edition or license configuration.
+
+**AWS reference:** [RDS for Oracle DB instance classes](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Oracle.Concepts.InstanceClasses.html) and [RDS hardware specifications](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Concepts.DBInstanceClass.Summary.html).
 
 ## AWS resources implemented
 

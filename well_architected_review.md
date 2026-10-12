@@ -28,6 +28,20 @@ The Assignment 1 design uses:
 - Private S3 catalogue image storage with global delivery through CloudFront.
 - A VPC with two Availability Zones and separate public, application, and database subnets.
 
+## Responding to Assignment 1 feedback: instance sizing
+
+The Assignment 1 instructor feedback (Yi-Chien Vita Tsai, 12 October 2026) asked for **provisional EC2 instance types per application tier and an initial RDS class**. This is a design-document improvement, not a new Learner Lab deployment.
+
+| Production tier | Initial class | Proposed availability pattern | Why this is a starting hypothesis |
+| --- | --- | --- | --- |
+| Apache/Linux frontend | `t3.medium` (2 vCPU / 4 GiB) | Two instances, two AZs, public ALB | Cost-conscious for variable traffic; measure CPU credits under sustained load |
+| .NET Core/Windows backend | `m6i.large` (2 vCPU / 8 GiB) | Two instances, two AZs, internal ALB | More general-purpose memory headroom; verify Windows/.NET consumption |
+| RDS for Oracle 19c | `db.m6i.large` (2 vCPU / 8 GiB) | Multi-AZ DB deployment | Oracle class is provisional pending edition, licensing, regional support and IOPS validation |
+
+The actual lab retains `t3.micro` Linux/Python dummy app instances and one `t3.micro` dummy DB EC2. **It does not deploy Oracle RDS or the proposed production-sized instances.** Confirm `ap-southeast-6` service/class availability, test CPU, memory, peak response time, T3 credits, Oracle capacity, restore and failover, and compare all-in licensing/network costs before production. This addresses a specific instructor suggestion without changing a previously accepted architecture.
+
+RDS reference: https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Oracle.Concepts.InstanceClasses.html
+
 ## Learner Lab implementation boundary
 
 The Learner Lab account does not expose `ap-southeast-6`, so the deployable prototype uses `us-east-1`. This is a lab constraint, not a production recommendation. The production recommendation remains the New Zealand Region where available, with CloudFront for global delivery.
