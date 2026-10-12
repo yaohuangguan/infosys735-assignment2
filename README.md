@@ -288,19 +288,30 @@ The working project directory used for development was:
 
 The scripts default to **`us-east-1`** and stack **`anygroupllc-a2`**. The Learner Lab account imposes IAM restrictions; the template references the preconfigured `LabRole` and `LabInstanceProfile`.
 
-### Start / renew access
+### Start / renew access — local `.env` (recommended)
 
-1. Open **AWS Academy -> Learner Lab -> Start Lab**, and wait for the green ready state.
-2. Open the Learner Lab **AWS Details** area and follow its current instructions for the **AWS CLI** temporary credentials.
-3. Update local AWS credentials **privately** (never place access keys or session tokens in GitHub issues, the repository, screenshots, or chat).
-4. Check the session and region:
+1. Open **AWS Academy -> Learner Lab -> Start Lab** and wait for the green ready state.
+2. In the AWS Academy Learner Lab **AWS Details -> AWS CLI** section, copy the short-lived three credentials.
+3. In the **WSL project folder** (not your Windows GitHub clone), prepare a local configuration file:
 
 ```bash
-aws sts get-caller-identity
-aws configure get region
+cp lab-env.example .env
+chmod 600 .env
+nano .env
 ```
 
-Learner Lab session credentials **expire**. On 12 October 2026 the last checked credentials returned `ExpiredToken`; the stack status could therefore not be queried. This is an authentication issue, **not evidence that CloudFormation was destroyed**.
+4. Either fill `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and `AWS_SESSION_TOKEN` in `.env`, **or paste the entire AWS Academy `[default]` credentials block** after the settings. The local loader supports both `AWS_ACCESS_KEY_ID=...` and `aws_access_key_id = ...` formats, and does **not** execute the file.
+5. Check the session without displaying keys:
+
+```bash
+./check-lab.sh
+```
+
+Then run `./deploy.sh` and `./verify.sh` as usual. They, along with `./destroy.sh`, now **automatically load the project `.env`**; you no longer need `aws configure` or to manually export variables each time.
+
+**Secrets policy:** `.env` is ignored by Git and should stay permission `600`. Never commit it, share it with classmates, paste it in chat, or include it in a recording. `lab-env.example` contains **only blank placeholders**, is safe to commit, and can serve as `.env.example` while Remote Arc's sensitive-path policy blocks creating dot-env files on the device. If you explicitly authorize just those two file paths, the template can be renamed to `.env.example`. The example's values are placeholders, not credentials.
+
+Learner Lab credentials **expire**; repeat the three-key replacement after every Lab restart. An `ExpiredToken` error does **not** prove the CloudFormation stack was deleted.
 
 ### Deploy
 
