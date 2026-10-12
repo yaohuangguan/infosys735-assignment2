@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# AWS Academy temporary credentials, keep strictly local
+.env
+.env.*
+!.env.example

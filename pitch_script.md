@@ -12,16 +12,18 @@ Suggested script:
 
 > Today we will show how the AnyGroupLLC cloud architecture moved from a proposal into a deployed AWS prototype. The goal is not only to list AWS services, but to show that the design supports availability, operations, security, cost control, and a business-facing forecasting feature.
 
-## Slide 2 — Assignment 2 strategy
+## Slide 2 — Business challenges and expected outcomes
 
-**Message:** The work is aligned to the marking structure.
+**Message:** This is a stakeholder recommendation, not a walkthrough of the marking rubric.
 
 Mention:
 
-- Design improvement through Well-Architected review.
-- Core AWS components deployed in Learner Lab.
-- Additional components for business value.
-- Live demo evidence for the 40-mark pitch.
+- CEO/CTO: resilient e-commerce during promotions and growth.
+- CISO: segmented access and demonstrable controls, while keeping PCI claims appropriately scoped.
+- IT Manager: repeatable deployments, health checks and fewer manual operations.
+- CFO: understandable spending trade-offs and an extensible sales forecasting workflow.
+
+Use the final architecture and real AWS Console evidence to support these outcomes; move marking percentages to team preparation notes / appendix.
 
 ## Slide 3 — Production baseline
 
@@ -33,22 +35,22 @@ Mention:
 - Public ALB, frontend ASG, internal ALB, backend ASG, and Oracle Multi-AZ remain the production traffic path.
 - Private S3 remains the product-image storage pattern.
 
-## Slide 4 — Assignment 1 feedback: initial production sizing
+## Slide 4 — Migration sizing and production validation
 
-**Message:** We acted on the instructor's specific feedback by identifying preliminary production instance classes while preserving the low-cost Learner Lab configuration.
+**Message:** Turn the proposed AWS architecture into a credible initial migration plan without presenting untested numbers as final sizing.
 
-**Production recommendations (not lab resources):**
+**Provisional production sizing (not Learner Lab resources):**
 
-- Frontend Apache/Linux: **EC2 `t3.medium`**, 2 vCPU / 4 GiB, starting with two instances across AZs.
-- Backend .NET/Windows: **EC2 `m6i.large`**, 2 vCPU / 8 GiB, starting with two instances across AZs.
-- Oracle database: **RDS `db.m6i.large`**, 2 vCPU / 8 GiB, initial Multi-AZ proposal.
-- Learner Lab remains **`t3.micro` dummy services**, not the above production classes.
+- Frontend Apache/Linux: **EC2 `t3.medium`**, 2 vCPU / 4 GiB, two instances.
+- Backend .NET/Windows: **EC2 `m6i.xlarge`**, 4 vCPU / 16 GiB, four instances across two AZs.
+- Oracle database: **RDS `db.m6i.2xlarge`**, 8 vCPU / 32 GiB plus an initial ~2-TB storage target, Multi-AZ.
+- Lab uses **`t3.micro` dummy applications and one dummy DB EC2**, not these production classes.
 
-**Validation gates:** Check `ap-southeast-6` class/engine availability, Oracle edition/licensing, frontend T3 credit behavior, Windows memory needs, DB IOPS, load testing and DR targets. These are starting assumptions, not benchmarked final sizes.
+**Validation gates:** Confirm New Zealand Region availability, Oracle licensing/edition, CPU-vCPU differences, peak capacity, Windows overhead, IOPS, backup/restore and RTO/RPO. Apply right-sizing only after real measurements.
 
 Suggested script:
 
-> Following Assignment 1 feedback, we now specify starting instance types for each production tier. We propose t3.medium for the Linux frontend, m6i.large for the Windows .NET backend and db.m6i.large for Oracle RDS Multi-AZ. These are provisional choices to validate against load, licensing, regional availability and recovery targets. The Learner Lab deliberately keeps its low-cost dummy servers unchanged.
+> We have selected a preliminary migration baseline that is closer to AnyGroupLLC's existing compute and memory footprint. It gives us a starting point for cost estimates and realistic load testing, rather than assuming we can shrink capacity safely from day one. The Learner Lab uses much smaller simulated servers solely to verify the architecture.
 
 ## Slide 5 — Learner Lab constraints
 
@@ -81,9 +83,9 @@ Suggested script:
 
 Console evidence:
 
-1. Open S3 bucket `anygroupllc-a2-332702858057-us-east-1`.
-2. Show `forecast-input/sample-sales.csv`.
-3. Show `forecast-output/latest.json`.
+1. Open the S3 bucket from the **current CloudFormation `ForecastBucket` output**.
+2. Upload or show a new unique `forecast-input/*.csv` object.
+3. Show the matching `forecast-output/runs/<input-basename>.csv.json` plus `forecast-output/latest.json`. Confirm that `source_key` matches the new input.
 4. Open Lambda function `anygroup-sales-forecast`.
 5. Show recent CloudWatch logs if needed.
 

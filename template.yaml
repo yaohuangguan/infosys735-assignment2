@@ -12,6 +12,14 @@ Parameters:
   ProjectTag:
     Type: String
     Default: INFOSYS735-A2
+  AlarmNotificationEmail:
+    Type: String
+    Default: ''
+    Description: Optional alarm email recipient; must confirm SNS subscription.
+    AllowedPattern: '^$|^[^@ ]+@[^@ ]+[.][^@ ]+$'
+
+Conditions:
+  HasAlarmNotificationEmail: !Not [!Equals [!Ref AlarmNotificationEmail, '']]
 
 Resources:
   VPC:
@@ -201,6 +209,17 @@ Resources:
       Egress: false
       CidrBlock: 0.0.0.0/0
       PortRange: {From: 80, To: 80}
+
+  PublicNaclInHttpsFromVpc:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      NetworkAclId: !Ref PublicNacl
+      RuleNumber: 105
+      Protocol: 6
+      RuleAction: allow
+      Egress: false
+      CidrBlock: 10.0.0.0/16
+      PortRange: {From: 443, To: 443}
 
   PublicNaclInEphemeral:
     Type: AWS::EC2::NetworkAclEntry
@@ -684,15 +703,23 @@ Resources:
       TopicName: anygroup-infrastructure-alarms
       Tags: [{Key: Project, Value: !Ref ProjectTag}]
 
+  AlarmEmailSubscription:
+    Type: AWS::SNS::Subscription
+    Condition: HasAlarmNotificationEmail
+    Properties:
+      TopicArn: !Ref AlarmTopic
+      Protocol: email
+      Endpoint: !Ref AlarmNotificationEmail
+
   FrontendHighCpuAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
       AlarmName: anygroup-frontend-high-cpu
-      AlarmDescription: Frontend ASG average CPU above 70 percent for two periods
+      AlarmDescription: Frontend ASG average CPU above 70 percent for two 5-minute periods (basic monitoring)
       Namespace: AWS/EC2
       MetricName: CPUUtilization
       Statistic: Average
-      Period: 60
+      Period: 300
       EvaluationPeriods: 2
       Threshold: 70
       ComparisonOperator: GreaterThanThreshold
@@ -720,35 +747,76 @@ Resources:
           import csv
           import io
           import json
+          import math
           import os
-          from datetime import datetime, timezone
+          from datetime import date, datetime, timedelta, timezone
+          from urllib.parse import unquote_plus
+
           s3 = boto3.client("s3")
 
-          def lambda_handler(event, context):
-              record = event["Records"][0]
-              bucket = record["s3"]["bucket"]["name"]
-              key = record["s3"]["object"]["key"]
-              obj = s3.get_object(Bucket=bucket, Key=key)
-              text = obj["Body"].read().decode("utf-8")
-              rows = list(csv.DictReader(io.StringIO(text)))
-              sales = [float(r["sales"]) for r in rows if r.get("sales")]
-              if not sales:
-                  raise ValueError("CSV must contain a numeric sales column")
-              window = sales[-7:]
-              forecast = sum(window) / len(window)
+          def forecast_csv(bucket, key):
+              response = s3.get_object(Bucket=bucket, Key=key)
+              raw = response["Body"].read().decode("utf-8-sig")
+              reader = csv.DictReader(io.StringIO(raw))
+              if not reader.fieldnames or not {"date", "sales"}.issubset(reader.fieldnames):
+                  raise ValueError("CSV requires date and sales columns")
+
+              observations = []
+              previous_date = None
+              for line, row in enumerate(reader, start=2):
+                  day_text = (row.get("date") or "").strip()
+                  sales_text = (row.get("sales") or "").strip()
+                  try:
+                      day = date.fromisoformat(day_text)
+                      if day.isoformat() != day_text:
+                          raise ValueError("non-canonical date")
+                      sales = float(sales_text)
+                  except (TypeError, ValueError) as exc:
+                      raise ValueError(f"Invalid date or sales at CSV line {line}") from exc
+                  if not math.isfinite(sales) or sales < 0:
+                      raise ValueError(f"Sales must be finite and non-negative at CSV line {line}")
+                  if previous_date is not None:
+                      if day <= previous_date:
+                          raise ValueError(f"Dates must be unique and chronological at CSV line {line}")
+                      if day - previous_date != timedelta(days=1):
+                          raise ValueError(f"Missing daily observations at CSV line {line}")
+                  observations.append((day, sales))
+                  previous_date = day
+              if not observations:
+                  raise ValueError("CSV contains no sales observations")
+
+              window = observations[-7:]
+              prediction = sum(sales for _, sales in window) / len(window)
+              run_key = "forecast-output/runs/" + key.removeprefix("forecast-input/") + ".json"
               result = {
                   "model": "7-day-simple-moving-average",
                   "source_key": key,
-                  "observations": len(sales),
+                  "result_key": run_key,
+                  "observations": len(observations),
                   "window_size": len(window),
-                  "next_day_sales_forecast": round(forecast, 2),
+                  "last_observation_date": observations[-1][0].isoformat(),
+                  "forecast_date": (observations[-1][0] + timedelta(days=1)).isoformat(),
+                  "next_day_sales_forecast": round(prediction, 2),
+                  "units": "sales units per day (prototype assumption)",
                   "generated_at": datetime.now(timezone.utc).isoformat()
               }
-              output_key = os.environ.get("OUTPUT_KEY", "forecast-output/latest.json")
-              s3.put_object(Bucket=bucket, Key=output_key,
-                            Body=json.dumps(result, indent=2).encode("utf-8"),
-                            ContentType="application/json")
+              body = json.dumps(result, indent=2, allow_nan=False).encode("utf-8")
+              s3.put_object(Bucket=bucket, Key=run_key, Body=body, ContentType="application/json")
+              s3.put_object(Bucket=bucket, Key=os.environ.get("OUTPUT_KEY", "forecast-output/latest.json"),
+                            Body=body, ContentType="application/json")
               return result
+
+          def lambda_handler(event, context):
+              results = []
+              for record in event.get("Records", []):
+                  bucket = record["s3"]["bucket"]["name"]
+                  key = unquote_plus(record["s3"]["object"]["key"])
+                  if not key.startswith("forecast-input/") or not key.endswith(".csv"):
+                      raise ValueError("Unexpected S3 input key")
+                  results.append(forecast_csv(bucket, key))
+              if not results:
+                  raise ValueError("No S3 event records to process")
+              return {"processed": len(results), "results": results}
       Tags: [{Key: Project, Value: !Ref ProjectTag}]
 
   ForecastInvokePermission:

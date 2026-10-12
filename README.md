@@ -135,8 +135,10 @@ We have now translated that feedback into the following **starting production si
 | Tier (production) | Provisional starting class | Capacity per instance | Initial architecture and rationale | Learner Lab actual configuration |
 | --- | --- | --- | --- | --- |
 | Frontend - Apache on Linux | **EC2 `t3.medium`** | **2 vCPU, 4 GiB RAM** | Start with **2 instances across 2 AZs** behind the public ALB; the burstable class is an initial cost-conscious choice for variable frontend traffic. Monitor CPU-credit balance during sustained campaigns and consider a non-burstable class if needed. | `t3.micro` Linux/Python simulator in the frontend ASG |
-| Backend - .NET Core on Windows | **EC2 `m6i.large`** | **2 vCPU, 8 GiB RAM** | Start with **2 instances across 2 AZs** behind the internal ALB. General-purpose baseline with more memory headroom for the Windows OS and .NET services; validate CPU/memory and Windows licensing costs. | `t3.micro` Linux/Python simulator in the backend ASG |
-| Database - Oracle on Amazon RDS | **RDS `db.m6i.large`** | **2 vCPU, 8 GiB RAM** | **RDS for Oracle 19c, Multi-AZ** as an initial DB class, subject to confirming the selected edition, licensing model, regional availability and storage/IOPS needs. A secondary Multi-AZ standby does **not** double read-serving capacity. | **Single** `t3.micro` EC2 dummy HTTP endpoint; no Oracle, RDS or DB failover |
+| Backend - .NET Core on Windows | **EC2 `m6i.xlarge`** | **4 vCPU, 16 GiB RAM** | Start with **4 instances across 2 AZs** behind the internal ALB (matching the existing fleet's server count and nominal per-host memory); benchmark Windows/.NET utilization and AWS licensing before resizing. Physical CPUs are not directly comparable with vCPUs. | `t3.micro` Linux/Python simulator in the backend ASG (2 desired) |
+| Database - Oracle on Amazon RDS | **RDS `db.m6i.2xlarge`**, 2 TiB initial storage target | **8 vCPU, 32 GiB RAM** | **RDS for Oracle 19c, Multi-AZ** baseline aligned more closely with the case's 8-CPU / 32-GB / 2-TB system. Confirm compatible edition, license, IOPS, storage allocation, region and failover. The standby does **not** double read-serving capacity. | **Single** `t3.micro` EC2 dummy HTTP endpoint; no Oracle, RDS or DB failover |
+
+**Sizing caveat:** Assignment 1's existing estate lists **two frontend Linux hosts at 2 CPUs / 4 GB each**, **four backend Windows hosts at 4 CPUs / 16 GB each**, and **one Oracle server at 8 CPUs / 32 GB and 2 TB storage**. The revised production assumptions retain that context instead of arbitrarily reducing memory and server count. These are still planning estimates, not right-sizing test results.
 
 **Why this qualifies as a design improvement:** the original Assignment 1 diagram specified the deployment pattern and technology choices but left instance classes unspecified. Assigning explicit, reviewable starting sizes makes the design easier to cost, capacity-plan and test without pretending that the Learner Lab dummy servers are production equivalents.
 
@@ -147,7 +149,7 @@ We have now translated that feedback into the following **starting production si
 3. Benchmark Oracle memory, storage, IOPS, connection limits, backup/restore, RTO/RPO and failover behavior with **representative migrated data**.
 4. Compare projected compute, Windows/Oracle licensing, NAT/ALB/network, storage and operational costs against the CFO's budget before committing.
 
-**Boundary:** these are **provisional production recommendations only**. No change to `template.yaml` is required; the Learner Lab continues to use `t3.micro` and a dummy database to stay within its restrictions and budget. AWS RDS documentation lists `db.m6i.large` among supported classes for Oracle 19c, but this does not guarantee availability for every Region, engine edition or license configuration.
+**Boundary:** these are **provisional production recommendations only**. No change to `template.yaml` is required; the Learner Lab continues to use `t3.micro` and a dummy database to stay within its restrictions and budget. AWS RDS documentation lists `db.m6i.2xlarge` among supported classes for Oracle 19c, but this does not guarantee availability for every Region, engine edition or license configuration.
 
 **AWS reference:** [RDS for Oracle DB instance classes](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Oracle.Concepts.InstanceClasses.html) and [RDS hardware specifications](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Concepts.DBInstanceClass.Summary.html).
 
@@ -167,7 +169,7 @@ The following reflects **`template.yaml`**, not a claim that these resources are
 | Compute image | Configurable AMI and `t3.micro` default | `t2.micro` also allowed by parameter |
 | Object storage | 1 encrypted, non-public S3 bucket | Bucket name derived from AWS account and region |
 | Serverless | Python 3.12 Lambda `anygroup-sales-forecast` | Triggered by S3-created CSV files |
-| Observability | CloudWatch high-CPU alarm + SNS topic | Verify alarm data state and subscribers separately |
+| Observability | 5-minute CloudWatch high-CPU alarm + SNS topic, optional email subscription | Confirm the SNS email subscription and test delivery separately |
 | IAM | Lab-provided `LabRole` and `LabInstanceProfile` | No custom IAM principals created |
 
 The deployed resource list and generated identifiers can be inspected from the **CloudFormation Resources and Outputs tabs**. Counts above refer to the defined architecture; Auto Scaling can create more instances under load.
@@ -184,7 +186,7 @@ The deployed resource list and generated identifiers can be inspected from the *
 - The **public route table** sends `0.0.0.0/0` to the Internet Gateway; the public ALB and NAT Gateways use public subnets.
 - The **application route table per AZ** sends outbound Internet traffic through the NAT Gateway in the same AZ. Instances in these private subnets do not need public addresses.
 - The **database route table** contains VPC-local routing only. Neither DB subnet receives an Internet default route.
-- Custom NACLs provide subnet-level controls; the Security Groups provide the principal tier-to-tier restrictions.
+- Custom NACLs provide subnet-level controls; the Security Groups provide the principal tier-to-tier restrictions. The public-subnet NACL now allows **inbound TCP 443 from the VPC** for private-instance traffic forwarded through each NAT; port 1024-65535 permits return traffic. A real HTTPS egress test from **each AZ** is still required.
 
 ### Security Group trust chain
 
@@ -234,19 +236,22 @@ S3: forecast-output/latest.json
 
 - **Trigger:** S3 `ObjectCreated:*` notification with prefix `forecast-input/` and suffix `.csv`.
 - **Input:** a CSV containing a `sales` column (see [sample-sales.csv](sample-sales.csv)).
-- **Calculation:** arithmetic mean of `sales[-7:]`; fewer than 7 rows uses the available observations.
-- **Output:** `model`, `source_key`, `observations`, `window_size`, `next_day_sales_forecast` and `generated_at`.
-- **Output location:** `forecast-output/latest.json` in the **same private bucket**. The output path is outside the event-trigger prefix, avoiding a recursive Lambda trigger.
+- **Input validation:** strictly increasing, **consecutive ISO daily dates** and a finite, non-negative numeric `sales` value in each row; gaps, duplicates, negative values and NaN/infinity are rejected.
+- **Calculation:** arithmetic mean of the last **up to seven consecutive daily observations**.
+- **Event handling:** S3 object keys are URL-decoded (including spaces and plus signs), and every S3 notification record is processed.
+- **Output:** `model`, `source_key`, `result_key`, `observations`, `window_size`, `forecast_date`, `next_day_sales_forecast`, `units` and `generated_at`.
+- **Output location:** immutable per-input result at `forecast-output/runs/<input-basename>.csv.json` and a convenience pointer at `forecast-output/latest.json`. Both are outside the triggering prefix.
 - **Demo sample:** the last seven sales values in the committed CSV are 515, 540, 528, 560, 590, 575 and 610, yielding a forecast of **559.71** (rounded to two decimals).
 
-**Important modelling limitation:** although the code labels this a "7-day" simple moving average, it actually takes the **last seven CSV observations**; it does not validate that rows are daily, sorted, complete or seasonally representative. This is a proof of an **event-driven forecasting workflow**, not a validated forecasting model.
+**Modelling boundary:** dates must now be consecutive and ordered, but the algorithm remains a **simple seven-day moving average**. It assumes consistent daily sales units, handles neither product/store segmentation nor returns, promotions, holidays, seasonality or stockouts, and has not been validated on representative business data. The CFO's workflow is: **existing system exports daily sales -> S3 -> Lambda -> forecast output -> purchasing staff review replenishment decisions**. No business accuracy or waste-reduction claim has been established.
 
 ## Monitoring and operations
 
-- `anygroup-frontend-high-cpu`: CloudWatch alarm defined at a **70% CPU threshold for two 60-second evaluation periods**. SNS actions are configured for ALARM and OK states.
-- `anygroup-infrastructure-alarms`: SNS topic for alarm actions. The template does **not** define an email subscription, so receiving an alert in a mailbox is **not** an implemented feature.
+- `anygroup-frontend-high-cpu`: CloudWatch CPU alarm at **70% for two five-minute periods**. This aligns with EC2 **basic monitoring** without charging for 60-second detailed monitoring. Scaling remains a separate **60% CPU target-tracking** policy.
+- `anygroup-infrastructure-alarms`: SNS topic for alarm actions. An **optional email subscription** is created when `ALARM_EMAIL` is supplied during deployment; the recipient must accept the SNS confirmation email. Without that confirmation, delivery is **not** verified.
 - CloudFormation makes resources repeatable and exposes stack outputs for later inspection.
 - The repository includes separate deploy, verify and destroy scripts.
+- Local forecasting tests: `python3 -m unittest discover -s tests -v` (no AWS account required).
 
 Check actual CloudWatch alarm state and metric availability during the demo. An alarm existing in the console is not evidence that notification delivery was tested. Verify the S3-triggered Lambda invocation by examining the new output object's timestamp and, if available, Lambda/CloudWatch logs.
 
@@ -283,19 +288,30 @@ The working project directory used for development was:
 
 The scripts default to **`us-east-1`** and stack **`anygroupllc-a2`**. The Learner Lab account imposes IAM restrictions; the template references the preconfigured `LabRole` and `LabInstanceProfile`.
 
-### Start / renew access
+### Start / renew access — local `.env` (recommended)
 
-1. Open **AWS Academy -> Learner Lab -> Start Lab**, and wait for the green ready state.
-2. Open the Learner Lab **AWS Details** area and follow its current instructions for the **AWS CLI** temporary credentials.
-3. Update local AWS credentials **privately** (never place access keys or session tokens in GitHub issues, the repository, screenshots, or chat).
-4. Check the session and region:
+1. Open **AWS Academy -> Learner Lab -> Start Lab** and wait for the green ready state.
+2. In the AWS Academy Learner Lab **AWS Details -> AWS CLI** section, copy the short-lived three credentials.
+3. In the **WSL project folder** (not your Windows GitHub clone), prepare a local configuration file:
 
 ```bash
-aws sts get-caller-identity
-aws configure get region
+test -f .env || cp .env.example .env  # preserve existing credentials
+chmod 600 .env
+nano .env
 ```
 
-Learner Lab session credentials **expire**. On 12 October 2026 the last checked credentials returned `ExpiredToken`; the stack status could therefore not be queried. This is an authentication issue, **not evidence that CloudFormation was destroyed**.
+4. Either fill `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and `AWS_SESSION_TOKEN` in `.env`, **or paste the entire AWS Academy `[default]` credentials block** after the settings. The local loader supports both `AWS_ACCESS_KEY_ID=...` and `aws_access_key_id = ...` formats, and does **not** execute the file.
+5. Check the session without displaying keys:
+
+```bash
+./check-lab.sh
+```
+
+Then run `./deploy.sh` and `./verify.sh` as usual. They, along with `./destroy.sh`, now **automatically load the project `.env`**; you no longer need `aws configure` or to manually export variables each time.
+
+**Secrets policy:** `.env` is ignored by Git and should stay permission `600`. Never commit it, share it with classmates, paste it in chat, or include it in a recording. `.env.example` contains **only blank placeholders** and is safe to commit. The example's values are placeholders, not credentials.
+
+Learner Lab credentials **expire**; repeat the three-key replacement after every Lab restart. An `ExpiredToken` error does **not** prove the CloudFormation stack was deleted.
 
 ### Deploy
 
@@ -308,7 +324,7 @@ chmod +x deploy.sh verify.sh destroy.sh
 
 `deploy.sh` validates `template.yaml`, deploys CloudFormation, and prints the resulting stack outputs. **Deployment creates billable resources**. Do not repeatedly deploy in separate student accounts solely to record consistent-looking videos.
 
-If region and stack name need to change, the deploy script supports `AWS_REGION` and `STACK_NAME`, but the supplied `verify.sh` is currently hard-coded to `us-east-1` and `anygroupllc-a2`. Keep these settings consistent when reproducing the demonstration.
+`deploy.sh` and `verify.sh` both support `AWS_REGION` and `STACK_NAME` (defaults: `us-east-1` / `anygroupllc-a2`). To opt in to email alerts, run `ALARM_EMAIL=your-address@example.com ./deploy.sh` **locally**, then confirm the subscription in that mailbox. Never commit actual credentials or private contact details. If the Lab disallows SNS subscriptions, leave the optional email parameter blank and explain the limitation rather than claiming end-to-end delivery.
 
 ### Manual verification
 
@@ -319,7 +335,7 @@ aws cloudformation describe-stacks \
   --query 'Stacks[0].{Status:StackStatus,Outputs:Outputs}'
 ```
 
-Confirm the stack completes, then use `./verify.sh`. **The verifier has side effects:** it uploads `sample-sales.csv` into S3, which triggers Lambda and refreshes `forecast-output/latest.json`.
+Confirm the stack completes, then use `./verify.sh`. The verifier now **fails on unhealthy target groups, absent cross-AZ instances, incorrect HTTP responses, broken public NACL/NAT resources, missing forecast results, or incompatible alarm configuration**. It uploads the sample to a **unique S3 input key** and waits for that input's **unique output**, so an old `latest.json` cannot give a false positive. It leaves test objects in S3 until cleanup. Optional: `REQUIRE_SNS_DELIVERY=1 ./verify.sh` requires an SNS confirmed subscriber; actual email delivery and load-driven scale-out still require separate live evidence.
 
 For manual application checks, replace `<PUBLIC_ALB_DNS>` with the current CloudFormation output:
 
@@ -395,8 +411,8 @@ Do not assume AWS Academy pauses or automatically removes chargeable resources w
 - No production CDN, WAF, Shield integration, HTTPS certificates, or Route 53 domain.
 - No proof of PCI DSS compliance; no real payment or personal-data processing.
 - No measured failover/recovery times, comprehensive load tests, or backup/restore exercises.
-- The "7-day" forecast takes seven observations and is not a tested predictive model.
-- SNS topic is configured but the template has no subscriber; alert delivery is unproven.
+- Daily dates/values are now validated, but the seven-day average is still not a production-tested forecasting model.
+- SNS email subscription is optional and must be confirmed; an alarm and topic alone do not prove delivery.
 - Current runtime status and budget are unknown until credentials are renewed and checked.
 
 ### Teardown after evidence capture
