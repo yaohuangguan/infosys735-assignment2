@@ -295,7 +295,7 @@ The scripts default to **`us-east-1`** and stack **`anygroupllc-a2`**. The Learn
 3. In the **WSL project folder** (not your Windows GitHub clone), prepare a local configuration file:
 
 ```bash
-cp lab-env.example .env
+cp .env.example .env
 chmod 600 .env
 nano .env
 ```
@@ -309,7 +309,7 @@ nano .env
 
 Then run `./deploy.sh` and `./verify.sh` as usual. They, along with `./destroy.sh`, now **automatically load the project `.env`**; you no longer need `aws configure` or to manually export variables each time.
 
-**Secrets policy:** `.env` is ignored by Git and should stay permission `600`. Never commit it, share it with classmates, paste it in chat, or include it in a recording. `lab-env.example` contains **only blank placeholders**, is safe to commit, and can serve as `.env.example` while Remote Arc's sensitive-path policy blocks creating dot-env files on the device. If you explicitly authorize just those two file paths, the template can be renamed to `.env.example`. The example's values are placeholders, not credentials.
+**Secrets policy:** `.env` is ignored by Git and should stay permission `600`. Never commit it, share it with classmates, paste it in chat, or include it in a recording. `.env.example` contains **only blank placeholders** and is safe to commit. The example's values are placeholders, not credentials.
 
 Learner Lab credentials **expire**; repeat the three-key replacement after every Lab restart. An `ExpiredToken` error does **not** prove the CloudFormation stack was deleted.
 

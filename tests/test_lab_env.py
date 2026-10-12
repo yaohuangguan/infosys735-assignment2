@@ -66,7 +66,7 @@ class LabEnvTests(unittest.TestCase):
         self.assertNotEqual(p.returncode, 0)
 
     def test_no_real_values_in_template(self):
-        template = (ROOT / "lab-env.example").read_text()
+        template = (ROOT / ".env.example").read_text()
         for key in ("AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN"):
             self.assertIn(key + "=\n", template)
 
