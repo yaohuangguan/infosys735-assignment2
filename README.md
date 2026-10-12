@@ -36,14 +36,18 @@ The business case calls for an infrastructure platform supporting an online busi
 | Financial discipline | Lab-sized dummy compute, reproducible cleanup, production/lab separation | CloudFormation sizing and cleanup script |
 | Demand forecasting | S3 event notification invokes Python Lambda; generated forecast stored in S3 | Input CSV, Lambda, output JSON and logs |
 
-**Marking outline supplied for Assignment 2:**
+### Official marking outline (100%)
 
-| Component | Weight | Where to demonstrate it |
-| --- | ---: | --- |
-| Solution improvement | 10% | Updated architecture and Well-Architected review |
-| Basic infrastructure implementation | 30% | VPC, compute, routing, load balancing, ASGs, storage and security |
-| Additional infrastructure implementation | 20% | Forecasting workflow and operational additions |
-| Presentation | 40% | Technical rationale, business value, and substantial AWS Console evidence |
+The four grading components below use the exact labels and weights from the Assignment 2 brief. Each row links the requirement to concrete implementation and presentation evidence.
+
+| Official marking criterion | Weight | How our solution addresses it | Evidence to include |
+| --- | ---: | --- | --- |
+| **Solution improvement** | **10%** | Improve the Assignment 1 architecture using AWS Well-Architected trade-offs and add a business-facing forecasting workflow. Explain what changed and why. | Updated final architecture diagram, [Well-Architected review](well_architected_review.md), production-versus-lab comparison |
+| **Infrastructure implementation (Basic)** | **30%** | Build VPC networking, two AZs, six subnets, routing, NAT, Security Groups/NACLs, public/internal ALBs, frontend/backend ASGs, EC2 dummy DB and private S3. | CloudFormation Resources, subnet/route and security views, target health, ASG instances, live `/`, `/api/` and `/api/db/` results |
+| **Infrastructure implementation (Additional)** | **20%** | Implement event-driven sales forecasting with S3 + Lambda and infrastructure monitoring using CloudWatch + SNS. | Upload `sample-sales.csv`, show Lambda trigger/execution and generated `forecast-output/latest.json`, inspect CloudWatch alarm and SNS topic |
+| **Presentation** | **40%** | Explain the architecture, business rationale, technical choices, trade-offs and working implementation with a coherent four-speaker pitch. | PDF/slides plus a recorded AWS Console walkthrough with substantial live-system evidence |
+
+**Grading priority:** 50% of marks relate to implemented infrastructure, 40% to the presentation, and 10% to solution improvement. Slides alone cannot substitute for demonstrating functioning services. The grading rubric above does not imply that every listed component is currently live; verify the Learner Lab first (see [Verification and presentation evidence](#verification-and-presentation-evidence)).
 
 **Submission checklist:**
 
