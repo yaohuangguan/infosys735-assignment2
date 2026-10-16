@@ -449,7 +449,8 @@ Every member should review the architecture and expected Console output, not onl
 | [`well_architected_review.md`](well_architected_review.md) | Pillar-by-pillar analysis, technical justification and limitations |
 | [`pitch_script.md`](pitch_script.md) | High-level pitch outline and AWS Console walkthrough |
 | [`presentation/presenter-script.md`](presentation/presenter-script.md) | Full 15-minute, four-speaker **English narration** aligned to 34 timed shots |
-| [`presentation/console-recording-cue-sheet.md`](presentation/console-recording-cue-sheet.md) | Sam's shot-by-shot recording plan, expected evidence and hold times |
+| [`presentation/console-recording-cue-sheet.md`](presentation/console-recording-cue-sheet.md) | English timeline and AWS Console shot list |
+| [`presentation/console-recording-guide.zh-CN.md`](presentation/console-recording-guide.zh-CN.md) | **中文手动录屏分镜：四位组员逐步点击路径、停留秒数、预期证据及交付清单** |
 | [`presentation/record-console.ps1`](presentation/record-console.ps1) | Windows FFmpeg silent screen recording helper (dry-run verified) |
 
 ---

@@ -1,5 +1,7 @@
 # Sam's AWS Console recording cue sheet — 15:00 edit map
 
+**中文逐步点击与停留秒数指南：** [console-recording-guide.zh-CN.md](console-recording-guide.zh-CN.md)（优先照中文版手动操作；本文件保留英文成片时间轴）。
+
 **Purpose:** Sam captures four clean, **silent** 2560×1440 source videos on Windows; Zack edits to 1920×1080. Each presenter records their English narration separately with the matching IDs in [presenter-script.md](presenter-script.md). You may capture extra transition time and trim later; the timestamps below are **final cut positions**, not literal wall-clock navigation deadlines.
 
 **Recommended filenames:** `Part1_Vincent_Raw.mp4`, `Part2_Zack_Raw.mp4`, `Part3_Sam_Raw.mp4`, `Part4_Kevin_Raw.mp4`. Store locally in ignored `recordings/` and only share the four final clips with the group.
