@@ -447,7 +447,10 @@ Every member should review the architecture and expected Console output, not onl
 | [`sample-sales.csv`](sample-sales.csv) | Reproducible input to the forecasting pipeline |
 | [`architecture_diagram.md`](architecture_diagram.md) | Expanded architecture diagram and production-vs-lab comparison |
 | [`well_architected_review.md`](well_architected_review.md) | Pillar-by-pillar analysis, technical justification and limitations |
-| [`pitch_script.md`](pitch_script.md) | Suggested 15-minute pitch and step-by-step AWS Console walkthrough |
+| [`pitch_script.md`](pitch_script.md) | High-level pitch outline and AWS Console walkthrough |
+| [`presentation/presenter-script.md`](presentation/presenter-script.md) | Full 15-minute, four-speaker **English narration** aligned to 34 timed shots |
+| [`presentation/console-recording-cue-sheet.md`](presentation/console-recording-cue-sheet.md) | Sam's shot-by-shot recording plan, expected evidence and hold times |
+| [`presentation/record-console.ps1`](presentation/record-console.ps1) | Windows FFmpeg silent screen recording helper (dry-run verified) |
 
 ---
 
