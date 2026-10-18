@@ -77,25 +77,26 @@
 
 ## 四、Part 3 — Sam：Reliability & Operational Excellence
 
-**最终影片位置：07:00–11:00 · Console/HTTP 证据共 4 分钟。** 这里最重要的是证明“ALB/ASG 不只是存在，而是真的有 Healthy Target，并且三层请求跑通”。
+**最终影片位置：07:00–11:00 · 全部 4 分钟只展示 AWS Console。** 注意：AWS Console 本身当然是在 Chrome 里打开的，但**不用新开普通网站页面，也不用输入 ALB URL、`/api/` 或 `/api/db/`**。最后 70 秒改为展示两层 ALB 的 Listener 和私有 Dummy DB 的网络隔离。
 
 | 编号 / 成片位置 | 具体点哪里、依次做什么 | 页面稳定后停留 | 必须拍到 |
 | --- | --- | ---: | --- |
-| **3.1 / 07:00–07:25（25 秒）** | 搜索 **EC2** → 左侧 **Load Balancing → Load Balancers** → 搜索 `anygroup-` → 点击 `anygroup-public-alb` 查看 Scheme，再选 `anygroup-internal-alb` | **每个 10 秒** | 前者是 `internet-facing`，后者是 `internal`，两者均为 Application 类型。 |
-| **3.2 / 07:25–07:55（30 秒）** | EC2 左侧 **Target Groups** → `anygroup-front-tg` → **Targets** | **20 秒** | 至少 **2 个 Healthy** 的 Frontend Targets，健康检查 `/health`。如果不健康就不能说通过。 |
-| **3.3 / 07:55–08:25（30 秒）** | **Target Groups** → `anygroup-back-tg` → **Targets** | **20 秒** | 至少 **2 个 Healthy** 的 Backend Targets。 |
-| **3.4 / 08:25–08:55（30 秒）** | EC2 左边 **Auto Scaling Groups** → `anygroup-frontend-asg` → **Details** → **Instance management** | **Details 12 秒 + 实例 12 秒** | Desired = 2，Min = 2，Max = 4；实例位于两个 AZ 并正常服务。 |
-| **3.5 / 08:55–09:25（30 秒）** | **Auto Scaling Groups** → `anygroup-backend-asg` → **Details** → **Instance management** | **Details 12 秒 + 实例 12 秒** | 同样 2 / 2 / 4，且两个 AZ 有实例。 |
-| **3.6 / 09:25–09:50（25 秒）** | 选择一个 ASG → **Automatic scaling** → 找 **Target tracking scaling policy** → 打开详细配置 | **17 秒** | Target value **60% average CPU**。解释这是扩缩容目标，不是声称已经做过压力测试。 |
-| **3.7 / 09:50–10:10（20 秒）** | 回到 **CloudFormation → anygroupllc-a2 → Outputs** → 找 **PublicAlbDns** → 复制当前 DNS → 打开 `http://<当前DNS>/` | **12 秒** | 首页能显示 `AnyGroupLLC` 原型内容；只录网页主体，隐藏浏览器地址栏及个人 Tab。 |
-| **3.8 / 10:10–10:30（20 秒）** | 在同一 DNS 的访问路径最后加 **`/api/`**，访问后停留 | **12 秒** | JSON 中显示 `"service": "backend-app-tier"`。 |
-| **3.9 / 10:30–11:00（30 秒）** | 将访问路径改成 **`/api/db/`** → 等响应出现后停住；有需要把 JSON 文本放大一档 | **20 秒** | JSON 中显示 `"service": "dummy-oracle-tier"`。**这不是 Oracle 数据库，是模拟 DB EC2 的网络调用证据。** |
+| **3.1 / 07:00–07:25（25 秒）** | AWS 顶部搜索 **EC2** → 左侧 **Load Balancing → Load Balancers** → 过滤 `anygroup-` → 点击 `anygroup-public-alb` 看 **Scheme**，再点 `anygroup-internal-alb` | **每个 10 秒** | Public = `internet-facing`，Internal = `internal`；Type 均为 Application。 |
+| **3.2 / 07:25–07:55（30 秒）** | EC2 左侧 **Target Groups** → `anygroup-front-tg` → **Targets** | **20 秒** | 至少 2 个 **Healthy** 的 Frontend Targets；健康检查路径为 `/health`。 |
+| **3.3 / 07:55–08:25（30 秒）** | **Target Groups** → `anygroup-back-tg` → **Targets** | **20 秒** | 至少 2 个 **Healthy** 的 Backend Targets。 |
+| **3.4 / 08:25–08:55（30 秒）** | 左侧 **Auto Scaling Groups** → `anygroup-frontend-asg` → **Details** → **Instance management** | **Details 12 秒 + 实例 12 秒** | Desired 2 / Min 2 / Max 4；健康实例分布在两个 AZ。 |
+| **3.5 / 08:55–09:25（30 秒）** | **Auto Scaling Groups** → `anygroup-backend-asg` → **Details** → **Instance management** | **Details 12 秒 + 实例 12 秒** | Backend 同样 2 / 2 / 4，两 AZ 有 InService 实例。 |
+| **3.6 / 09:25–09:50（25 秒）** | 在 ASG 中点击 **Automatic scaling** → 找到 **Target tracking scaling policy** → 展示配置 | **17 秒** | Target value = **60% average CPU**。这是扩容目标，不能说已经测过扩缩容。 |
+| **3.7 / 09:50–10:10（20 秒）** | EC2 → **Load Balancers** → 选 `anygroup-public-alb` → 下方 **Listeners and rules**（有时叫 Listeners）→ 找 **HTTP:80** → 展开默认规则/Forward to | **13 秒** | Public ALB 的 **HTTP 80 Listener → `anygroup-front-tg`**。鼠标指向 Forward to，等文字清晰后再移开。 |
+| **3.8 / 10:10–10:30（20 秒）** | 返回 Load Balancers → 选 `anygroup-internal-alb` → **Listeners and rules** → **HTTP:80** → 展示 Default action | **13 秒** | Internal ALB 的 **HTTP 80 Listener → `anygroup-back-tg`**。配合前面两个 Healthy Target Groups 解释路由结构。 |
+| **3.9 / 10:30–11:00（30 秒）** | EC2 左侧 **Instances** → 搜索 Name = `db-tier-dummy-oracle` → 点击实例 → **Details / Networking** 展示 Private IPv4、Subnet；再点 **Security → Security Groups**，点 DB 安全组进入 **Inbound rules** | **私有子网 10 秒 + 安全组 15 秒** | Dummy DB 没有公网访问入口；DB SG 的 **TCP 8080 来源 = `backend-sg`**（Security Group ID）。这是 Dummy EC2，**不是 Oracle RDS**。 |
 
-**小提醒：** 3.7–3.9 严格来说是在浏览器里看通过公共 ALB 返回的真实应用响应，而不是 AWS Management Console 菜单。这三条是为了证明真实链路，属于有效演示证据；录屏时只裁切网页主体即可。若不希望录应用网页，可替换为 Console 健康检查，但证据力度会明显变弱。
+**重点说明：** 3.7–3.9 展示 ALB 转发规则与数据库安全边界，**只证明配置和此前健康检查的状态，不等于当场验证了完整端到端业务请求**。仓库的 `verify.sh` 另有 `/`、`/api/`、`/api/db/` 的独立测试；如果老师要求“现场证明 HTTP 真实返回”，在正式视频之外运行该脚本留存验收记录，不能把 Console 的配置画面称为 HTTP 实测。
 
-**Sam 应讲清楚：** Public ALB → Frontend ASG → Internal ALB → Backend ASG → Private Dummy DB；ASG 有替换/扩缩容机制，但 **没有实测故障切换时间或 Oracle 高可用**。
+**Sam 讲解顺序：** Public ALB → Frontend Target Group/ASG → Internal ALB → Backend Target Group/ASG → 私有 Dummy DB；为什么需要健康检查、两 AZ 和 Auto Scaling，以及哪些功能没有做真实故障恢复或数据库高可用测试。
 
 ---
+
 
 ## 五、Part 4 — Kevin：Additional Feature & Business Value
 
@@ -155,7 +156,7 @@
 | --- | --- |
 | CloudFormation 尚未 `CREATE_COMPLETE` / `UPDATE_COMPLETE` | 等待完成或排错后再拍 |
 | Frontend / Backend Target Group 不满两个 Healthy | 暂停 Part 3，检查 ASG、Target Health、User Data |
-| `/api/` 或 `/api/db/` 失败 | 保留错误作排查，不以截图冒充成功的端到端演示 |
+`verify.sh` 的 HTTP 接口校验失败 | 作为单独的工程验收问题记录；Part 3 Console 镜头不能冒充 HTTP 请求成功 |
 | Forecast 输出文件未生成 | 等 Lambda、检查触发器及日志；不使用旧的 `latest.json` |
 | CloudWatch 为 `INSUFFICIENT_DATA` | 可讲配置存在，但不能讲告警已经触发成功 |
 | SNS Topic 无 Confirmed 订阅 | 只演示配置，不声称邮件送达 |
