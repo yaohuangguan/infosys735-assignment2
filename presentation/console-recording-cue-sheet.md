@@ -34,17 +34,23 @@
 
 ## Part 3 — Sam (07:00–11:00)
 
+**只录 AWS Management Console：不新开 ALB 网站，不访问普通浏览器网页。**
+
 | Shot | Final cut | Dur. | Screen / click path | Hold | 录屏操作 / 检查点 |
 |---|---|---:|---|---:|---|
-| 3.1 | 07:00–07:25 | 25s | CONSOLE: EC2 → Load Balancers → public and internal ALBs | ≥14s | 展示两个 ALB 的 Scheme / Type：public internet-facing、internal internal。 |
-| 3.2 | 07:25–07:55 | 30s | CONSOLE: EC2 → Target Groups → anygroup-front-tg → Targets | ≥18s | 出现两个 Healthy frontend targets；如果 unhealthy 停止录制并排查。 |
-| 3.3 | 07:55–08:25 | 30s | CONSOLE: EC2 → Target Groups → anygroup-back-tg → Targets | ≥18s | 出现两个 Healthy backend targets，显示 Health status 列、AZ 列。 |
-| 3.4 | 08:25–08:55 | 30s | CONSOLE: EC2 → Auto Scaling Groups → anygroup-frontend-asg → Details / Instance management | ≥18s | 显示 Desired 2, Min 2, Max 4 和 Instance AZ；必要时滚动。 |
-| 3.5 | 08:55–09:25 | 30s | CONSOLE: EC2 → Auto Scaling Groups → anygroup-backend-asg → Details / Instance management | ≥17s | 显示 Backend ASG 2/2/4，两 AZ；不能仅凭 ASG 配置宣称已真实故障切换。 |
-| 3.6 | 09:25–09:50 | 25s | CONSOLE: Auto Scaling Group → Automatic scaling → CPU target tracking | ≥15s | 显示 Target Tracking 60% CPU；如愿意切 CloudWatch 再展示 70% alarm，但不必强行同框。 |
-| 3.7 | 09:50–10:10 | 20s | CONSOLE: Browser → current PublicAlbDns → / | ≥12s | 新浏览器标签打开 Outputs 提供的 Public ALB DNS，显示 AnyGroupLLC Prototype 首页。 |
-| 3.8 | 10:10–10:30 | 20s | CONSOLE: Browser → current PublicAlbDns → /api/ | ≥12s | 地址栏末尾 `/api/`，JSON `service: backend-app-tier` 可见且放大。 |
-| 3.9 | 10:30–11:00 | 30s | CONSOLE: Browser → current PublicAlbDns → /api/db/ | ≥17s | 浏览器到 `/api/db/`，显示 JSON `service: dummy-oracle-tier`；不是真实 Oracle。 |
+| 3.1 | 07:00–07:25 | 25s | CONSOLE: EC2 → Load Balancers → public and internal ALBs | ≥14s | 展示两个 ALB 的 Scheme / Type：internet-facing 和 internal。 |
+| 3.2 | 07:25–07:55 | 30s | CONSOLE: EC2 → Target Groups → anygroup-front-tg → Targets | ≥18s | 两个 Healthy frontend targets；如 unhealthy 停止拍摄排查。 |
+| 3.3 | 07:55–08:25 | 30s | CONSOLE: EC2 → Target Groups → anygroup-back-tg → Targets | ≥18s | 两个 Healthy backend targets，显示 Health status。 |
+| 3.4 | 08:25–08:55 | 30s | CONSOLE: EC2 → Auto Scaling Groups → anygroup-frontend-asg → Details / Instance management | ≥18s | Desired 2, Min 2, Max 4，跨两个 AZ。 |
+| 3.5 | 08:55–09:25 | 30s | CONSOLE: EC2 → Auto Scaling Groups → anygroup-backend-asg → Details / Instance management | ≥17s | Backend 2/2/4，实例在两个 AZ；不能直接宣称已实测故障切换。 |
+| 3.6 | 09:25–09:50 | 25s | CONSOLE: Auto Scaling Group → Automatic scaling → CPU target tracking | ≥15s | Target tracking 60% CPU。 |
+| 3.7 | 09:50–10:10 | 20s | CONSOLE: EC2 → Load Balancers → anygroup-public-alb → Listeners and rules | ≥13s | HTTP:80 默认规则转发至 `anygroup-front-tg`。 |
+| 3.8 | 10:10–10:30 | 20s | CONSOLE: EC2 → Load Balancers → anygroup-internal-alb → Listeners and rules | ≥13s | HTTP:80 默认规则转发至 `anygroup-back-tg`。 |
+| 3.9 | 10:30–11:00 | 30s | CONSOLE: EC2 → Instances → db-tier-dummy-oracle → Networking / Security → Inbound rules | ≥17s | Dummy DB 位于私有子网，TCP 8080 仅允许 Backend SG；不是 Oracle RDS。 |
+
+**证据边界：** 这些画面不能代替端到端业务 HTTP 返回验证；另外使用 `verify.sh` 做独立验收，不将脚本运行结果伪装成视频现场的网页画面。
+
+
 
 ## Part 4 — Kevin (11:00–15:00)
 
@@ -81,7 +87,7 @@ The screen recorder cannot navigate AWS Console by itself. Browser navigation ne
 2. **Desktop:** Use the single 2560×1440 primary Windows display (verified 16 October); capture desktop with FFmpeg at 30fps, scale to 1920×1080, do not record microphone. Chrome at 100–110% zoom, hide notifications and unrelated tabs, use light theme and at least 12–14pt text.
 3. **Clip plan:** One silent take per part. Start recording on a neutral AWS Console page, leave a 3-second lead-in, navigate at a comfortable pace, and keep each important successful status page stationary for ≥10–20 seconds. Retake a shot if a page fails to load; Zack can remove navigation gaps and dead time.
 4. **Fresh S3 demonstration:** Use a unique copy of `sample-sales.csv`, upload via S3 Console under `forecast-input/`, then open the **corresponding** object under `forecast-output/runs/`. Confirm `source_key` and forecast value. Lambda is asynchronous: wait for new output instead of faking the result.
-5. **Evidence:** Capture stack status, resource list, public/internal ALBs, **2 healthy targets** per group, cross-AZ ASGs, `/`, `/api/`, `/api/db/`, VPC routes, NACL TCP 443, S3 event and Lambda result, CloudWatch 300s×2, SNS topic state.
+5. **Evidence:** Capture stack status, resource list, public/internal ALBs and their HTTP listener forwarding actions, **2 healthy targets** per group, cross-AZ ASGs, private dummy DB instance and its inbound SG rule, VPC routes, NACL TCP 443, S3/Lambda result, CloudWatch 300s×2 and SNS topic. End-to-end HTTP paths are validated separately by `verify.sh`, **not shown as browser footage**.
 6. **Editing:** Use slides only for business problems, updated full architecture, provisional production sizing, forecasting flow, and final caveats; otherwise stay on real Console. Four distinct speakers should be audible. Do not paste secrets, invent healthy states, imply that a slide is a real Console capture, or fabricate an AWS result.
 7. **Afterward:** Inspect four playable source MP4s, audio alignment, and final 15:00 cut; upload only the final video to a stable shared link. Submit slides/PDF plus a separate `.txt` containing the recording URL, and everyone must complete TeamMates evaluations. Delete paid AWS resources after saving evidence and obtaining group approval.
 
