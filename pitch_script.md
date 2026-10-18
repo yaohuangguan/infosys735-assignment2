@@ -124,26 +124,19 @@ Suggested script:
 
 > We should describe this as supporting PCI-aligned architecture principles, not as proving PCI compliance. Compliance depends on payment-flow design, policies, evidence, and formal assessment.
 
-## Slide 10 — Live demo order
+## Slide 10 — AWS Console demonstration order (no application browser page)
 
-Recommended Console order:
+Recommended Console-only order:
 
-1. CloudFormation stack and outputs.
-2. Public ALB URL.
-3. Target groups.
-4. Auto Scaling Groups.
-5. S3 and Lambda forecast output.
-6. CloudWatch alarm and SNS topic.
+1. CloudFormation stack info, resources and outputs.
+2. Public and internal ALB details, **Listeners and rules** (forward to frontend/backend target groups).
+3. Both target groups showing healthy instances.
+4. Frontend and backend Auto Scaling Groups, cross-AZ instance placement and CPU target tracking.
+5. Private dummy DB EC2 subnet and Security Group inbound TCP 8080 from backend.
+6. S3 forecast input, Lambda trigger, matching S3 JSON output, CloudWatch alarm and SNS topic.
 
-Public URL:
+No raw ALB URL or `/api/` browser-tab demonstration is part of the recorded presentation. `verify.sh` provides the **separate** HTTP path verification for `/`, `/api/`, and `/api/db/`. Healthy targets and listener rules alone do not prove full end-to-end request behavior.
 
-`http://anygroup-public-alb-735612210.us-east-1.elb.amazonaws.com/`
-
-HTTP paths:
-
-- `/` shows the frontend.
-- `/api/` proves frontend to backend.
-- `/api/db/` proves backend to private database tier.
 
 ## Slide 11 — Recommendation
 
