@@ -377,7 +377,7 @@ Before handing in the assignment, take new console evidence while the Learner La
 | --- | --- | --- | ---: |
 | Architecture and solution improvement | Member 1 | Business problem, Assignment 1 vs 2, final diagram, CloudFormation resources | 3 min |
 | Networking and security | Member 2 | VPC, six subnets, NAT, routes, NACLs, SG chain, private DB | 4 min |
-| Reliability and operations | Member 3 | Public/internal ALBs, healthy targets, ASGs, `/`, `/api/`, `/api/db/`, IaC | 4 min |
+| Reliability and operations | Member 3 | Public/internal ALBs and listener forwarding, healthy targets, cross-AZ ASGs, private dummy DB security boundary, IaC; HTTP path verification handled separately by `verify.sh` | 4 min |
 | Additional feature and business value | Member 4 | CSV upload, Lambda, output JSON, CloudWatch/SNS, costs and conclusion | 4 min |
 
 The **same AWS environment** should be used to capture all four console sections, so resource identifiers and evidence remain consistent. The recording can be assembled asynchronously: one authorized account holder captures real console demonstrations and team members record explanations for their assigned sections. Avoid sharing AWS Academy credentials; confirm the lecturer's recording-format requirements if needed. **Each presenter should understand and be able to explain their section**.
