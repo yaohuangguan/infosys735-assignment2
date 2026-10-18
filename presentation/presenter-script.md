@@ -184,7 +184,7 @@
 
 ### Shot 3.6 — 09:25–09:50 (25s, CONSOLE)
 
-**Screen:** Auto Scaling Group → Automatic scaling → CPU target tracking
+**Screen:** EC2 → Auto Scaling Group → Automatic scaling → CPU target tracking
 
 **English voiceover:**
 
@@ -192,29 +192,30 @@
 
 ### Shot 3.7 — 09:50–10:10 (20s, CONSOLE)
 
-**Screen:** Browser → current PublicAlbDns → /
+**Screen:** EC2 → Load Balancers → anygroup-public-alb → Listeners and rules → HTTP:80
 
 **English voiceover:**
 
-> Let's verify the complete request path with actual responses. The root URL is reached through the public ALB and returns the frontend's AnyGroupLLC prototype page. This is stronger evidence than a list of deployed resources alone.
+> The public ALB listens on HTTP port eighty and forwards traffic to the frontend target group. Together with the healthy targets shown earlier, this demonstrates the configured public entry path. It is not, on its own, an application-level end-to-end test.
 
 ### Shot 3.8 — 10:10–10:30 (20s, CONSOLE)
 
-**Screen:** Browser → current PublicAlbDns → /api/
+**Screen:** EC2 → Load Balancers → anygroup-internal-alb → Listeners and rules → HTTP:80
 
 **English voiceover:**
 
-> The API URL travels from the public ALB into the frontend, then across the internal load balancer to the backend tier. The response identifies the backend service, which supports our claim that the internal application routing is functional.
+> The internal ALB is restricted to the application network. Its HTTP listener forwards requests to the backend target group. Both listeners establish the intended routing structure while the target-group health checks indicate that instances are responding.
 
 ### Shot 3.9 — 10:30–11:00 (30s, CONSOLE)
 
-**Screen:** Browser → current PublicAlbDns → /api/db/
+**Screen:** EC2 → Instances → db-tier-dummy-oracle → Networking / Security → DB Security Group → Inbound rules
 
 **English voiceover:**
 
-> The database path adds one more hop, from the backend to the private dummy database service on port 8080. A successful response demonstrates the intended multi-tier connectivity. It does not represent an actual Oracle migration, proven database failover, or production transaction processing. That distinction matters in our evaluation.
+> Finally, the simulated database service runs on a private EC2 instance. Its Security Group allows port eight thousand and eighty only from the backend Security Group. This shows a deliberate boundary between the application and database tiers. It is not a real Oracle database or a demonstrated Multi-AZ database deployment. End-to-end HTTP requests were checked separately using our verification script, not in this Console-only segment.
 
 ---
+
 
 ## Part 4 — Kevin: Forecasting & Business Value (11:00–15:00)
 
