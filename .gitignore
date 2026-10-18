@@ -9,3 +9,6 @@ __pycache__/
 
 # Local raw demonstration videos only
 recordings/
+
+# Wrangler command cache
+.wrangler/

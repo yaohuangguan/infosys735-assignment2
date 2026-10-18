@@ -6,6 +6,10 @@ This repository documents the implementation of the **AnyGroupLLC** cloud archit
 
 The purpose is not to claim a production-ready e-commerce platform. It is to demonstrate, with deployed resources and repeatable checks, the feasibility of network isolation, multi-AZ application availability, load balancing, Auto Scaling, infrastructure automation, monitoring, and an event-driven business feature.
 
+## Presentation recordings (18 October 2026)
+
+All four teammates' **1080p AWS Console recordings** are now hosted on Cloudflare R2, with individual links, durations, and editing notes in the **[Presentation video index](presentation/videos/README.md)**. The raw videos are available for Zack to edit; the final combined presentation recording still needs to be prepared and submitted separately.
+
 ## Contents
 
 1. [Objectives and assignment deliverables](#objectives-and-assignment-deliverables)
